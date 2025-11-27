@@ -42,7 +42,7 @@ export default function MedicalSidebar({ onLogout }) {
     { to: '/rendezvous', label: 'Rendez-vous', icon: <Calendar size={22} /> },
     { to: '/consultation', label: 'Consultations', icon: <FileText size={22} /> },
     { to: '/prescription', label: 'Prescriptions', icon: <ClipboardList size={22} /> },
-    { to: '/examen', label: 'Examens', icon: <Stethoscope size={22} /> },
+    { to: '/examen', label: 'Factures', icon: <Stethoscope size={22} /> },
   ];
 
   const isActive = (path) => location.pathname === path;

@@ -579,7 +579,7 @@ const FactureTousPatients = () => {
                   <td>${r.heureStr}</td>
                   <td>${r.praticienNom}</td>
                   <td>${r.specialite}</td>
-                  <td style="text-align: right; font-weight: 600;">${parseFloat(r.prix).toFixed(2)} DT</td>
+                  <td style="text-align: right; font-weight: 600;">${parseFloat(r.prix).toFixed(2)} Ar</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -628,7 +628,7 @@ const FactureTousPatients = () => {
           ` : ''}
 
           <div class="total-section">
-            TOTAL GÉNÉRAL : ${total} DT
+            TOTAL GÉNÉRAL : ${total} Ar
           </div>
 
           <div class="footer">
@@ -788,7 +788,7 @@ const FactureTousPatients = () => {
                 <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                   Chiffre d'Affaires
                 </p>
-                <p className="text-3xl font-bold text-emerald-500">{stats.totalRevenue} DT</p>
+                <p className="text-3xl font-bold text-emerald-500">{stats.totalRevenue} Ar</p>
                 <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                   Revenu total
                 </p>
@@ -934,7 +934,7 @@ const FactureTousPatients = () => {
                   <label className={`block text-sm font-medium mb-2 ${
                     darkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
-                    Montant min (DT)
+                    Montant min (Ar)
                   </label>
                   <input
                     type="number"
@@ -948,7 +948,7 @@ const FactureTousPatients = () => {
                   <label className={`block text-sm font-medium mb-2 ${
                     darkMode ? 'text-gray-300' : 'text-gray-700'
                   }`}>
-                    Montant max (DT)
+                    Montant max (Ar)
                   </label>
                   <input
                     type="number"
@@ -1039,7 +1039,7 @@ const FactureTousPatients = () => {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                        {total} DT
+                        {total} Ar
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center" onClick={e => e.stopPropagation()}>
@@ -1090,7 +1090,7 @@ const FactureTousPatients = () => {
                 </td>
                 <td className="px-6 py-6 text-right">
                   <div className="text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                    {totalGeneral} DT
+                    {totalGeneral} Ar
                   </div>
                 </td>
                 <td></td>
@@ -1148,7 +1148,7 @@ const FactureTousPatients = () => {
                             </p>
                           </div>
                           <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                            {parseFloat(rdv.prix).toFixed(2)} DT
+                            {parseFloat(rdv.prix).toFixed(2)} Ar
                           </div>
                         </div>
 
@@ -1249,7 +1249,7 @@ const FactureTousPatients = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-gray-600 dark:text-gray-400">Total des consultations</p>
-                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{modalData.total} DT</p>
+                    <p className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">{modalData.total} Ar</p>
                   </div>
                   <div className="flex gap-3">
                     <button 

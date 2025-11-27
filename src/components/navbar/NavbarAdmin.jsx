@@ -49,12 +49,12 @@ export default function NavbarAdmin() {
                 <span>{item.label}</span>
               </Link>
             ))}
-            <button
+            {/* <button
               onClick={handleLogout}
               className="flex items-center px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700 transition-all ml-2 animate-fade-in-up"
             >
               <LogOut size={18} className="mr-2" /> Déconnexion
-            </button>
+            </button> */}
           </div>
         </div>
       </nav>
@@ -99,12 +99,12 @@ export default function NavbarAdmin() {
                 <span>{item.label}</span>
               </Link>
             ))}
-            <button
+            {/* <button
               onClick={handleLogout}
               className="flex items-center px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700 transition-all mt-4 animate-fade-in-up"
             >
               <LogOut size={18} className="mr-2" /> Déconnexion
-            </button>
+            </button> */}
           </nav>
         </aside>
       </div>
