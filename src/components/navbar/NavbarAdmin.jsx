@@ -51,7 +51,7 @@ export default function NavbarAdmin() {
             ))}
             {/* <button
               onClick={handleLogout}
-              className="flex items-center px-4 py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700 transition-all ml-2 animate-fade-in-up"
+              className="flex items-center px-4klkljhkhkjhjkhjkhkjhkjh py-2 rounded bg-red-600 text-white font-bold hover:bg-red-700 transition-all ml-2 animate-fade-in-up"
             >
               <LogOut size={18} className="mr-2" /> Déconnexion
             </button> */}
