@@ -18,6 +18,8 @@ const db = new sqlite3.Database('./patient.db', (err) => {
   console.log('✅ Connecté à la base de données SQLite');
 });
 
+
+
 // 🔧 Création des tables
 
 db.serialize(() => {

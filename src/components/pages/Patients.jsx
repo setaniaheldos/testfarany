@@ -318,7 +318,7 @@ export default function Patients() {
       {/* En-tête avec statistiques */}
       <div className="mb-8">
         <h2 className="text-4xl font-bold mb-2 text-sky-800 text-center">
-          Dossiers des Patients 🧑‍⚕️
+          Dossiers des Patients 
         </h2>
         <p className="text-gray-600 text-center mb-6">Gestion complète des dossiers patients</p>
         

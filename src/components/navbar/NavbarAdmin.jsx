@@ -39,7 +39,7 @@ export default function NavbarAdmin() {
             </button>
             <span className="text-2xl font-extrabold text-blue-600 dark:text-blue-300 tracking-tight flex items-center gap-2">
               <Shield size={28} className="animate-bounce" />
-              Admin Panel
+              Espace d'administration
             </span>
           </div>
           <div className="hidden md:flex items-center space-x-2 text-gray-800 dark:text-gray-200">
