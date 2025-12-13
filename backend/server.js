@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const cors = require('cors');
 
 const app = express();
-const PORT = 3001;
+const PORT = 3000;
 
 app.use(cors());
 app.use(express.json());
@@ -681,5 +681,5 @@ app.put('/rendezvous/:id', async (req, res) => {
 // ...existing code...
 // Démarrer serveur
 app.listen(PORT, () => {
-  console.log(`🚀 Serveur lancé sur http://localhost:${PORT}`);
+  console.log(`🚀 Serveur lancé sur http://82.165.15.45:${PORT}`);
 });
