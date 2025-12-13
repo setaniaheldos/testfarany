@@ -19,7 +19,7 @@ const AdminAuth = () => {
     setSuccess('');
     setLoading(true);
     try {
-      const res = await axios.post('http://82.165.15.45:5000/admins/login', form);
+      const res = await axios.post('http://82.165.15.45/admins/login', form);
       setLoading(false);
       if (res.status === 200) {
         setSuccess('Connexion admin réussie !');
