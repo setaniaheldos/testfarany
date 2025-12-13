@@ -8,7 +8,6 @@ const AdminAuth = () => {
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-const cors = require('cors');
 
   // 🚨 CORRECTION CRITIQUE ICI : Utilisation de l'URL de base Nginx (Port 80/443 implicite)
   // Si vous utilisez un nom de domaine, remplacez l'IP.
