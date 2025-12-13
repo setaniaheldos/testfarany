@@ -680,6 +680,9 @@ app.put('/rendezvous/:id', async (req, res) => {
 
 // ...existing code...
 // Démarrer serveur
-app.listen(PORT, () => {
-  console.log(`🚀 Serveur lancé sur http://82.165.15.45:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Serveur Node.js démarré avec succès !`);
+  console.log(`📡 Écoute sur toutes les interfaces (0.0.0.0)`);
+  console.log(`🌐 Accès local  : http://localhost:${PORT}`);
+  console.log(`🌐 Accès distant: http://82.165.15.45:${PORT}`);
 });
