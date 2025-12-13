@@ -9,6 +9,10 @@ const PORT = 3000;
 app.use(cors());
 app.use(express.json());
 
+app.use(cors({
+  origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
+  credentials: true
+}));
 
 
 
