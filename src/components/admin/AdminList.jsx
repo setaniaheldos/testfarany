@@ -9,7 +9,7 @@ const AdminList = () => {
   useEffect(() => {
     const fetchAdmins = async () => {
       try {
-        const response = await axios.get('http://82.165.15.45/admins');
+        const response = await axios.get('https://heldosseva.duckdns.org/admins');
         setAdmins(response.data);
       } catch (err) {
         setError('Erreur lors du chargement des administrateurs');

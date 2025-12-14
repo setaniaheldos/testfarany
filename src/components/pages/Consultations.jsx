@@ -30,7 +30,7 @@ import {
 
 // Constantes
 const PAGE_SIZE = 8;
-const API_BASE_URL = 'http://localhost:3001';
+const API_BASE_URL = 'https://heldosseva.duckdns.org';
 
 export default function Consultations() {
   // --- États des données ---
@@ -512,7 +512,7 @@ export default function Consultations() {
                       Revenu Total
                     </p>
                     <p className="text-3xl font-bold text-green-500">
-                      {stats.totalRevenue.toLocaleString()} DA
+                      {stats.totalRevenue.toLocaleString()} Ar
                     </p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                       {stats.avecPrix} consultations payantes
@@ -529,7 +529,7 @@ export default function Consultations() {
                       Prix Moyen
                     </p>
                     <p className="text-3xl font-bold text-purple-500">
-                      {stats.moyennePrix.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} DA
+                      {stats.moyennePrix.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} Ar
                     </p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
                       Par consultation payante
@@ -557,7 +557,7 @@ export default function Consultations() {
           )}
 
           {/* Section Impression PDF */}
-          <div className={`${cardClasses} p-6 mb-6 border-l-4 ${
+          {/* <div className={`${cardClasses} p-6 mb-6 border-l-4 ${
             darkMode ? 'border-red-500' : 'border-red-400'
           }`}>
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
@@ -579,7 +579,7 @@ export default function Consultations() {
                 </button>
               </div>
             </div>
-          </div>
+          </div> */}
 
           {/* Barre de recherche et actions */}
           <div className={`${cardClasses} p-6 mb-6`}>
@@ -660,14 +660,14 @@ export default function Consultations() {
                       />
                       <input
                         type="number"
-                        placeholder="Prix min (DA)"
+                        placeholder="Prix min (Ar)"
                         value={search.prixMin}
                         onChange={(e) => setSearch({ ...search, prixMin: e.target.value })}
                         className={inputClasses}
                       />
                       <input
                         type="number"
-                        placeholder="Prix max (DA)"
+                        placeholder="Prix max (Ar)"
                         value={search.prixMax}
                         onChange={(e) => setSearch({ ...search, prixMax: e.target.value })}
                         className={inputClasses}
@@ -690,7 +690,7 @@ export default function Consultations() {
                   <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                   Actualiser
                 </button>
-                <button 
+                {/* <button 
                   onClick={handleExportExcel}
                   className={`px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-medium shadow-md ${
                     darkMode
@@ -700,12 +700,12 @@ export default function Consultations() {
                 >
                   <DocumentArrowDownIcon className="h-5 w-5" />
                   Export Excel
-                </button>
+                </button> */}
                 <button 
                   onClick={() => { setShowForm(!showForm); resetForm(); }}
                   className={`px-6 py-3 rounded-xl transition flex items-center gap-2 font-medium shadow-md ${
                     showForm 
-                      ? 'bg-gradient-to-r from-red-500 to-red-600 text-white' 
+                      ? 'bg-gradient-to-r from-red-100 to-red-600 text-white' 
                       : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
                   }`}
                 >
@@ -933,7 +933,7 @@ export default function Consultations() {
                         <td className="px-6 py-4 font-extrabold text-lg">
                           {c.prix ? (
                             <span className="text-green-600 dark:text-green-400">
-                              {Number(c.prix).toLocaleString()} DA
+                              {Number(c.prix).toLocaleString()} Ar
                             </span>
                           ) : (
                             <span className="text-gray-500 dark:text-gray-400">Gratuit</span>

@@ -32,7 +32,7 @@ export default function Rendezvous() {
   const [sortField, setSortField] = useState('dateHeure');
   const [sortOrder, setSortOrder] = useState('asc');
   const [page, setPage] = useState(1);
-  const perPage = 10; // Augmenté pour compenser la taille réduite
+  const perPage = 10;
 
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [loading, setLoading] = useState(false);
@@ -53,9 +53,9 @@ export default function Rendezvous() {
     setLoading(true);
     try {
       const [rdvRes, patRes, pratRes] = await Promise.all([
-        axios.get('http://localhost:3001/rendezvous'),
-        axios.get('http://localhost:3001/patients'),
-        axios.get('http://localhost:3001/praticiens')
+        axios.get('https://heldosseva.duckdns.org/rendezvous'),
+        axios.get('https://heldosseva.duckdns.org/patients'),
+        axios.get('https://heldosseva.duckdns.org/praticiens')
       ]);
       setRdvs(rdvRes.data);
       setPatients(patRes.data);
@@ -105,8 +105,8 @@ export default function Rendezvous() {
     }
 
     const url = isEditing
-      ? `http://localhost:3001/rendezvous/${form.idRdv}`
-      : 'http://localhost:3001/rendezvous';
+      ? `https://heldosseva.duckdns.org/rendezvous/${form.idRdv}`
+      : 'https://heldosseva.duckdns.org/rendezvous';
 
     const method = isEditing ? 'put' : 'post';
 
@@ -138,7 +138,7 @@ export default function Rendezvous() {
     if (!window.confirm("Supprimer ce rendez-vous ?")) return;
 
     try {
-      await axios.delete(`http://localhost:3001/rendezvous/${id}`);
+      await axios.delete(`https://heldosseva.duckdns.org/rendezvous/${id}`);
       notify("Rendez-vous supprimé");
       fetchAllData();
     } catch (err) {
@@ -148,7 +148,7 @@ export default function Rendezvous() {
 
   const handleQuickStatusUpdate = async (id, newStatus) => {
     try {
-      await axios.put(`http://localhost:3001/rendezvous/${id}`, { statut: newStatus });
+      await axios.put(`https://heldosseva.duckdns.org/rendezvous/${id}`, { statut: newStatus });
       notify(`Rendez-vous ${newStatus === 'confirme' ? 'confirmé' : 'annulé'} !`);
       fetchAllData();
     } catch (err) {
@@ -303,7 +303,6 @@ export default function Rendezvous() {
     return sortOrder === 'asc' ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />;
   };
 
-  // === Composant de carte de statistiques compact ===
   const StatCard = ({ title, value, icon, color, onClick }) => (
     <div 
       onClick={onClick}
@@ -402,7 +401,6 @@ export default function Rendezvous() {
         {/* Barre d'actions compacte */}
         <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-sm p-4 mb-4 border border-gray-200 dark:border-gray-700">
           <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
-            {/* Filtres rapides */}
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setActiveFilter('tous')} className={filterButtonStyle('tous')}>
                 Tous
@@ -418,7 +416,6 @@ export default function Rendezvous() {
               </button>
             </div>
 
-            {/* Recherche et actions */}
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <div className="relative flex-1 min-w-[200px]">
                 <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
@@ -646,44 +643,44 @@ export default function Rendezvous() {
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => handleQuickStatusUpdate(r.idRdv, 'confirme')}
-                                  className="p-0.5 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded text-xs"
+                                  className="p-1 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded transition-colors"
                                   title="Confirmer"
                                 >
-                                  <Check className="w-3 h-3" />
+                                  <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleQuickStatusUpdate(r.idRdv, 'annule')}
-                                  className="p-0.5 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded text-xs"
+                                  className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
                                   title="Annuler"
                                 >
-                                  <X className="w-3 h-3" />
+                                  <X className="w-4 h-4" />
                                 </button>
                               </div>
                             )}
                           </div>
                         </td>
-                        <td className="px-3 py-2">
-                          <div className="flex justify-center gap-1">
+                        <td className="px-3 py-3">
+                          <div className="flex justify-center gap-2">
                             <button 
                               onClick={() => showDetails(r)} 
-                              className="p-1 text-blue-600 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded transition-colors"
-                              title="Détails"
+                              className="p-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-800/60 rounded-lg transition-colors"
+                              title="Voir les détails"
                             >
-                              <Eye className="w-3 h-3" />
+                              <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                             </button>
                             <button 
                               onClick={() => handleEdit(r)} 
-                              className="p-1 text-amber-600 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors"
+                              className="p-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-800/60 rounded-lg transition-colors"
                               title="Modifier"
                             >
-                              <Edit2 className="w-3 h-3" />
+                              <Edit2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                             </button>
                             <button 
                               onClick={() => handleDelete(r.idRdv)} 
-                              className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                              className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-800/60 rounded-lg transition-colors"
                               title="Supprimer"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
                             </button>
                           </div>
                         </td>
@@ -725,7 +722,7 @@ export default function Rendezvous() {
         </div>
       </div>
 
-      {/* Modal de détails compact */}
+      {/* Modal de détails */}
       {showDetailModal && selectedRdv && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full">

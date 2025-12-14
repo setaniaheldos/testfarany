@@ -43,7 +43,6 @@ export default function Patients() {
   const [showFilters, setShowFilters] = useState(false);
   const [stats, setStats] = useState({ total: 0, hommes: 0, femmes: 0 });
 
-  // Gestion des notifications
   const handleNotification = (msg, type) => {
     setNotification({ show: true, message: msg, type: type });
     setTimeout(() => setNotification({ show: false, message: '', type: 'success' }), type === 'error' ? 3000 : 2000);
@@ -52,10 +51,9 @@ export default function Patients() {
   const handleError = (msg) => handleNotification(msg, 'error');
   const handleSuccess = (msg) => handleNotification(msg, 'success');
 
-  // Fetch data
   const fetchPatients = () => {
     setLoading(true);
-    axios.get('http://localhost:3001/patients')
+    axios.get('https://heldosseva.duckdns.org/patients')
       .then(res => {
         setPatients(res.data);
         calculateStats(res.data);
@@ -64,7 +62,6 @@ export default function Patients() {
       .finally(() => setLoading(false));
   };
 
-  // Calcul des statistiques
   const calculateStats = (patientsData) => {
     const total = patientsData.length;
     const hommes = patientsData.filter(p => p.sexe === 'Homme').length;
@@ -76,7 +73,6 @@ export default function Patients() {
     fetchPatients();
   }, []);
 
-  // Gestion du formulaire
   const handleChange = (e) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
@@ -84,7 +80,7 @@ export default function Patients() {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    const url = `http://localhost:3001/patients${isEditing ? '/' + formData.idPatient : ''}`;
+    const url = `https://heldosseva.duckdns.org/patients${isEditing ? '/' + formData.idPatient : ''}`;
     const method = isEditing ? 'put' : 'post';
     
     if (formData.age && (isNaN(formData.age) || formData.age < 0 || formData.age > 120)) {
@@ -173,7 +169,7 @@ export default function Patients() {
 
   const handleDelete = (idPatient) => {
     if (window.confirm("⚠️ ATTENTION : La suppression est définitive. Voulez-vous vraiment continuer ?")) {
-      axios.delete(`http://localhost:3001/patients/${idPatient}`)
+      axios.delete(`https://heldosseva.duckdns.org/patients/${idPatient}`)
         .then(() => {
           fetchPatients();
           handleSuccess("Patient supprimé avec succès.");
@@ -182,7 +178,6 @@ export default function Patients() {
     }
   };
 
-  // Recherche et filtres
   const handleSearchChange = (e) => {
     setSearch(prev => ({ ...prev, [e.target.name]: e.target.value }));
     setPage(1);
@@ -201,7 +196,6 @@ export default function Patients() {
     setPage(1);
   };
 
-  // Tri
   const handleSort = (field) => {
     if (sortField === field) {
       setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
@@ -211,7 +205,6 @@ export default function Patients() {
     }
   };
 
-  // Filtrage des patients
   const filteredPatients = patients
     .filter(p => {
       const matchesSearch = 
@@ -251,7 +244,6 @@ export default function Patients() {
   const totalPages = Math.ceil(filteredPatients.length / perPage);
   const paginatedPatients = filteredPatients.slice((page - 1) * perPage, page * perPage);
 
-  // Export functions
   const handlePrintPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
@@ -259,10 +251,11 @@ export default function Patients() {
     doc.text("Liste des Patients", 14, 15);
     doc.autoTable({
       head: [[
-        "ID", "CIN", "Nom", "Prénom", "Sexe", "Âge", "Adresse", "Email", "Téléphone", "Date Création"
+        "ID", "CIN", "Nom", "Prénom", "Sexe", "Âge", "Adresse", "Email", "Téléphone"
+        // Date Création retirée de l'export PDF aussi (optionnel, tu peux la remettre si besoin)
       ]],
       body: filteredPatients.map(p => [
-        p.idPatient, p.cinPatient, p.nom, p.prenom, p.sexe, p.age, p.adresse, p.email, p.telephone, p.dateCreation
+        p.idPatient, p.cinPatient, p.nom, p.prenom, p.sexe, p.age, p.adresse, p.email, p.telephone
       ]),
       startY: 25,
       styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
@@ -283,8 +276,8 @@ export default function Patients() {
       Âge: p.age,
       Adresse: p.adresse,
       Email: p.email,
-      Téléphone: p.telephone,
-      'Date Création': p.dateCreation
+      Téléphone: p.telephone
+      // Date Création retirée de l'Excel aussi
     }));
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
@@ -293,16 +286,12 @@ export default function Patients() {
     handleSuccess("Fichier Excel généré avec succès.");
   };
 
-  // Icone de tri
   const SortIcon = ({ field }) => {
     if (sortField !== field) return null;
     return sortOrder === 'asc' 
       ? <ChevronUp className="w-4 h-4 inline-block ml-1" /> 
       : <ChevronDown className="w-4 h-4 inline-block ml-1" />;
   };
-
-  // Classes de styles
-  const actionButtonClasses = "flex items-center justify-center p-2 rounded-xl shadow-md transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2";
 
   return (
     <div className="p-4 bg-gradient-to-br from-blue-50 to-cyan-50 min-h-screen max-w-[1800px] mx-auto">
@@ -322,7 +311,6 @@ export default function Patients() {
         </h2>
         <p className="text-gray-600 text-center mb-6">Gestion complète des dossiers patients</p>
         
-        {/* Cartes statistiques */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="bg-white rounded-2xl p-6 shadow-lg border border-blue-100">
             <div className="flex items-center justify-between">
@@ -364,47 +352,15 @@ export default function Patients() {
             <p className='text-gray-600 font-semibold'>Rechercher un patient:</p>
           </div>
           <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-            <input
-              type="text"
-              placeholder="Nom"
-              className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none"
-              value={search.nom}
-              name="nom"
-              onChange={handleSearchChange}
-            />
-            <input
-              type="text"
-              placeholder="Prénom"
-              className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none"
-              value={search.prenom}
-              name="prenom"
-              onChange={handleSearchChange}
-            />
-            <input
-              type="text"
-              placeholder="Email"
-              className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none"
-              value={search.email}
-              name="email"
-              onChange={handleSearchChange}
-            />
-            <input
-              type="text"
-              placeholder="Téléphone"
-              className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none"
-              value={search.telephone}
-              name="telephone"
-              onChange={handleSearchChange}
-            />
+            <input type="text" placeholder="Nom" className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none" value={search.nom} name="nom" onChange={handleSearchChange} />
+            <input type="text" placeholder="Prénom" className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none" value={search.prenom} name="prenom" onChange={handleSearchChange} />
+            <input type="text" placeholder="Email" className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none" value={search.email} name="email" onChange={handleSearchChange} />
+            <input type="text" placeholder="Téléphone" className="w-full sm:w-36 px-4 py-2 rounded-xl border border-gray-300 text-gray-800 focus:ring-2 focus:ring-sky-300 transition-all shadow-sm outline-none" value={search.telephone} name="telephone" onChange={handleSearchChange} />
           </div>
         </div>
         
-        {/* Filtres avancés */}
         <div className="border-t border-gray-200 pt-4">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 text-sky-600 font-medium mb-4 hover:text-sky-700 transition-colors"
-          >
+          <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 text-sky-600 font-medium mb-4 hover:text-sky-700 transition-colors">
             <Filter className="w-4 h-4" />
             Filtres avancés
             {showFilters ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -414,12 +370,7 @@ export default function Patients() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-gray-50 rounded-xl mb-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Sexe</label>
-                <select
-                  className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all"
-                  value={search.sexe}
-                  name="sexe"
-                  onChange={handleSearchChange}
-                >
+                <select className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all" value={search.sexe} name="sexe" onChange={handleSearchChange}>
                   <option value="">Tous les sexes</option>
                   <option value="Homme">Homme</option>
                   <option value="Femme">Femme</option>
@@ -428,31 +379,16 @@ export default function Patients() {
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date de début</label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all"
-                  value={search.dateDebut}
-                  name="dateDebut"
-                  onChange={handleSearchChange}
-                />
+                <input type="date" className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all" value={search.dateDebut} name="dateDebut" onChange={handleSearchChange} />
               </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Date de fin</label>
-                <input
-                  type="date"
-                  className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all"
-                  value={search.dateFin}
-                  name="dateFin"
-                  onChange={handleSearchChange}
-                />
+                <input type="date" className="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-sky-300 transition-all" value={search.dateFin} name="dateFin" onChange={handleSearchChange} />
               </div>
               
               <div className="md:col-span-3 flex justify-end">
-                <button
-                  onClick={clearFilters}
-                  className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors flex items-center gap-2"
-                >
+                <button onClick={clearFilters} className="px-4 py-2 bg-gray-500 text-white rounded-xl hover:bg-gray-600 transition-colors flex items-center gap-2">
                   <X className="w-4 h-4" />
                   Effacer les filtres
                 </button>
@@ -463,33 +399,21 @@ export default function Patients() {
         
         <div className="flex flex-wrap gap-3 justify-between">
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handleAdd}
-              className="flex items-center bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg transform hover:scale-105"
-            >
+            <button onClick={handleAdd} className="flex items-center bg-gradient-to-r from-emerald-500 to-green-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-emerald-600 hover:to-green-600 transition-all shadow-lg transform hover:scale-105">
               <PlusCircle className="w-5 h-5 mr-2" /> Nouveau Patient
             </button>
             
-            <button
-              onClick={fetchPatients}
-              className="flex items-center bg-gradient-to-r from-sky-500 to-blue-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-sky-600 hover:to-blue-600 transition-all shadow-lg transform hover:scale-105"
-            >
+            <button onClick={fetchPatients} className="flex items-center bg-gradient-to-r from-sky-500 to-blue-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-sky-600 hover:to-blue-600 transition-all shadow-lg transform hover:scale-105">
               <RefreshCw className="w-5 h-5 mr-2" /> Actualiser
             </button>
           </div>
           
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={handlePrintPDF}
-              className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-red-600 hover:to-pink-600 transition-all shadow-lg transform hover:scale-105"
-            >
+            <button onClick={handlePrintPDF} className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-red-600 hover:to-pink-600 transition-all shadow-lg transform hover:scale-105">
               <FileText className="w-5 h-5 mr-2" /> Exporter PDF
             </button>
             
-            <button
-              onClick={handleExportExcel}
-              className="flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg transform hover:scale-105"
-            >
+            <button onClick={handleExportExcel} className="flex items-center bg-gradient-to-r from-green-500 to-emerald-500 text-white font-semibold px-6 py-2.5 rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg transform hover:scale-105">
               <FileSpreadsheet className="w-5 h-5 mr-2" /> Exporter Excel
             </button>
           </div>
@@ -501,32 +425,23 @@ export default function Patients() {
         <form onSubmit={handleSubmit} className="bg-white p-8 rounded-2xl shadow-xl mb-8 space-y-6 border border-sky-200">
           <h3 className="text-2xl font-bold text-sky-700">{isEditing ? 'Modifier le Dossier Patient' : 'Ajouter un Nouveau Patient'}</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            
             <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-600 mb-1">
-                CIN <span className="text-red-500 font-bold">*</span>
-              </label>
+              <label className="text-sm font-medium text-gray-600 mb-1">CIN <span className="text-red-500 font-bold">*</span></label>
               <input className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-sky-400 focus:border-sky-400 transition" name="cinPatient" placeholder="CIN" value={formData.cinPatient} onChange={handleChange} required />
             </div>
 
             <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-600 mb-1">
-                Prénom <span className="text-red-500 font-bold">*</span>
-              </label>
+              <label className="text-sm font-medium text-gray-600 mb-1">Prénom <span className="text-red-500 font-bold">*</span></label>
               <input className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-sky-400 focus:border-sky-400 transition" name="prenom" placeholder="Prénom" value={formData.prenom} onChange={handleChange} required />
             </div>
             
             <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-600 mb-1">
-                Nom <span className="text-red-500 font-bold">*</span>
-              </label>
+              <label className="text-sm font-medium text-gray-600 mb-1">Nom <span className="text-red-500 font-bold">*</span></label>
               <input className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-sky-400 focus:border-sky-400 transition" name="nom" placeholder="Nom" value={formData.nom} onChange={handleChange} required />
             </div>
             
             <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-600 mb-1">
-                Âge <span className="text-red-500 font-bold">*</span>
-              </label>
+              <label className="text-sm font-medium text-gray-600 mb-1">Âge <span className="text-red-500 font-bold">*</span></label>
               <input className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-sky-400 focus:border-sky-400 transition" name="age" type="number" placeholder="Âge" value={formData.age} onChange={handleChange} required min="0" max="120" />
             </div>
 
@@ -541,9 +456,7 @@ export default function Patients() {
             </div>
             
             <div className="flex flex-col">
-              <label className="text-sm font-medium text-gray-600 mb-1">
-                Sexe <span className="text-red-500 font-bold">*</span>
-              </label>
+              <label className="text-sm font-medium text-gray-600 mb-1">Sexe <span className="text-red-500 font-bold">*</span></label>
               <select className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-sky-400 focus:border-sky-400 transition" name="sexe" value={formData.sexe} onChange={handleChange} required>
                 <option value="Homme">Homme</option>
                 <option value="Femme">Femme</option>
@@ -574,18 +487,17 @@ export default function Patients() {
         </form>
       )}
 
-      {/* Tableau des Patients */}
+      {/* Tableau des Patients (Desktop) */}
       <div className="mt-8 hidden md:block">
         <div className="overflow-x-auto bg-white rounded-2xl shadow-xl border border-sky-100">
           <table className="min-w-[1400px] w-full text-sm">
             <thead>
               <tr className="bg-gradient-to-r from-sky-500 to-blue-500 text-white uppercase text-left font-semibold">
-                {['idPatient', 'cinPatient', 'nom', 'prenom', 'sexe', 'age', 'dateCreation'].map(field => (
+                {['idPatient', 'cinPatient', 'nom', 'prenom', 'sexe', 'age'].map(field => (
                   <th key={field} className="px-4 py-3 cursor-pointer hover:bg-sky-600 transition-all" onClick={() => handleSort(field)}>
                     <div className="flex items-center">
                       {field === 'cinPatient' ? 'CIN' : 
                        field === 'idPatient' ? 'ID' : 
-                       field === 'dateCreation' ? 'Date Création' :
                        field.charAt(0).toUpperCase() + field.slice(1)}
                       <SortIcon field={field} />
                     </div>
@@ -600,7 +512,7 @@ export default function Patients() {
             <tbody className="text-gray-700">
               {loading ? (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-sky-500 font-semibold flex items-center justify-center gap-2">
+                  <td colSpan={10} className="text-center py-8 text-sky-500 font-semibold flex items-center justify-center gap-2">
                     <Clock className="w-5 h-5 animate-spin" /> Chargement des données...
                   </td>
                 </tr>
@@ -619,21 +531,14 @@ export default function Patients() {
                       </span>
                     </td>
                     <td className="px-4 py-3">{p.age} ans</td>
-                    <td className="px-4 py-3 text-gray-500">{p.dateCreation}</td>
                     <td className="px-4 py-3 max-w-[200px] truncate" title={p.adresse}>{p.adresse}</td>
                     <td className="px-4 py-3 max-w-[150px] truncate" title={p.email}>{p.email}</td>
                     <td className="px-4 py-3">{p.telephone}</td>
                     <td className="px-4 py-3 space-x-2 flex justify-center">
-                      <button 
-                        onClick={() => handleEdit(p)} 
-                        className="flex items-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-3 py-2 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md transform hover:scale-105"
-                      >
+                      <button onClick={() => handleEdit(p)} className="flex items-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-3 py-2 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md transform hover:scale-105">
                         <Edit2 className="w-4 h-4 mr-1" /> Modifier
                       </button>
-                      <button 
-                        onClick={() => handleDelete(p.idPatient)} 
-                        className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-2 rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md transform hover:scale-105"
-                      >
+                      <button onClick={() => handleDelete(p.idPatient)} className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white px-3 py-2 rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md transform hover:scale-105">
                         <Trash2 className="w-4 h-4 mr-1" /> Supprimer
                       </button>
                     </td>
@@ -641,7 +546,7 @@ export default function Patients() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={11} className="text-center py-8 text-gray-500">
+                  <td colSpan={10} className="text-center py-8 text-gray-500">
                     <X className="w-5 h-5 inline-block mr-2 text-red-400" /> Aucun patient ne correspond aux critères de recherche.
                   </td>
                 </tr>
@@ -657,19 +562,11 @@ export default function Patients() {
           Affichage de {paginatedPatients.length} patient(s) sur {filteredPatients.length}
         </div>
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => setPage(p => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg transform hover:scale-105"
-          >Précédent</button>
+          <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg transform hover:scale-105">Précédent</button>
           <span className="font-bold text-sky-800 bg-white px-4 py-2 rounded-xl shadow-lg border border-sky-200">
             Page {page} sur {totalPages || 1}
           </span>
-          <button
-            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages || totalPages === 0}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg transform hover:scale-105"
-          >Suivant</button>
+          <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page === totalPages || totalPages === 0} className="px-4 py-2 rounded-xl bg-gradient-to-r from-sky-500 to-blue-500 text-white hover:from-sky-600 hover:to-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all font-medium shadow-lg transform hover:scale-105">Suivant</button>
         </div>
       </div>
 
@@ -712,16 +609,10 @@ export default function Patients() {
                 </div>
               </div>
               <div className="flex gap-3 mt-4 justify-end">
-                <button 
-                  onClick={() => handleEdit(p)} 
-                  className="flex items-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md transform hover:scale-105"
-                >
+                <button onClick={() => handleEdit(p)} className="flex items-center bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-4 py-2 rounded-lg hover:from-yellow-600 hover:to-amber-600 transition-all shadow-md transform hover:scale-105">
                   <Edit2 className="w-4 h-4 mr-1" /> Modifier
                 </button>
-                <button 
-                  onClick={() => handleDelete(p.idPatient)} 
-                  className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md transform hover:scale-105"
-                >
+                <button onClick={() => handleDelete(p.idPatient)} className="flex items-center bg-gradient-to-r from-red-500 to-pink-500 text-white px-4 py-2 rounded-lg hover:from-red-600 hover:to-pink-600 transition-all shadow-md transform hover:scale-105">
                   <Trash2 className="w-4 h-4 mr-1" /> Supprimer
                 </button>
               </div>
