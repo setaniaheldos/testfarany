@@ -12,7 +12,7 @@ const AdminAuth = () => {
   // 🚨 CORRECTION CRITIQUE ICI : Utilisation de l'URL de base Nginx (Port 80/443 implicite)
   // Si vous utilisez un nom de domaine, remplacez l'IP.
   // Si votre application React est sur le même domaine/IP, vous pouvez utiliser une URL relative '/admins/login'
-  const API_BASE_URL = 'http://82.165.15.45'; 
+  const API_BASE_URL = 'https://heldosseva.duckdns.org'; 
   
   const handleChange = e => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));

@@ -8,6 +8,8 @@ const PORT = 3000;
 
 
 app.use(express.json());
+app.set('trust proxy', 1);
+
 
 app.use(cors({
   origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
