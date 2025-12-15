@@ -36,6 +36,10 @@ const FactureTousPatients = () => {
     patientPlusActif: ''
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
+  
+  // États pour la pagination simple
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(5);
 
   // Détection de la taille d'écran
   useEffect(() => {
@@ -171,6 +175,24 @@ const FactureTousPatients = () => {
 
     return filtered;
   }, [patients, searchTerm, filters]);
+
+  // Calcul de la pagination simple
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentPatients = filteredPatients.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredPatients.length / itemsPerPage);
+
+  const nextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const prevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
 
   const getPraticienInfo = (cinPraticien) => {
     const prat = praticiens.find(p => p.cinPraticien === cinPraticien);
@@ -738,6 +760,51 @@ const FactureTousPatients = () => {
 
   const modalData = selectedPatient ? getPatientData(selectedPatient) : null;
 
+  // Composant de pagination simple
+  const PaginationSimple = () => {
+    if (filteredPatients.length <= itemsPerPage) return null;
+
+    return (
+      <div className={`flex justify-between items-center mt-4 p-4 rounded-xl ${
+        darkMode ? 'bg-gray-800/50' : 'bg-white/50'
+      }`}>
+        <button
+          onClick={prevPage}
+          disabled={currentPage === 1}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+            currentPage === 1
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-teal-100 dark:hover:bg-teal-900'
+          } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Précédent
+        </button>
+        
+        <span className={`font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          Page {currentPage} sur {totalPages}
+        </span>
+        
+        <button
+          onClick={nextPage}
+          disabled={currentPage === totalPages}
+          className={`px-4 py-2 rounded-lg flex items-center gap-2 ${
+            currentPage === totalPages
+              ? 'opacity-50 cursor-not-allowed'
+              : 'hover:bg-teal-100 dark:hover:bg-teal-900'
+          } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+        >
+          Suivant
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </div>
+    );
+  };
+
   return (
     <div className={containerClasses}>
       
@@ -868,32 +935,9 @@ const FactureTousPatients = () => {
                 <span className="sm:hidden">Filtres</span>
               </button>
 
-              {/* <button
-                onClick={exportExcel}
-                className="px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl hover:from-green-600 hover:to-emerald-600 transition-all shadow-lg flex items-center gap-2 font-semibold text-sm sm:text-base flex-1 lg:flex-none"
-              >
-                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <span className="hidden sm:inline">Excel</span>
-                <span className="sm:hidden">Excel</span>
-              </button> */}
+              
 
-              {/* <button
-                onClick={exportAllPDF}
-                disabled={exportLoading || filteredPatients.length === 0}
-                className="px-3 sm:px-4 py-2 sm:py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 disabled:opacity-50 transition-all shadow-lg flex items-center gap-2 font-semibold text-sm sm:text-base flex-1 lg:flex-none"
-              >
-                {exportLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 sm:h-5 sm:w-5 border-b-2 border-white"></div>
-                ) : (
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                )}
-                <span className="hidden sm:inline">Exporter Tous PDF</span>
-                <span className="sm:hidden">Tous PDF</span>
-              </button> */}
+             
             </div>
           </div>
 
@@ -990,67 +1034,72 @@ const FactureTousPatients = () => {
 
         {/* Tableau Principal - Version Mobile */}
         {isMobile ? (
-          <div className="space-y-4">
-            {filteredPatients.map(patient => {
-              const { total } = getPatientData(patient);
-              return (
-                <div 
-                  key={patient.cinPatient} 
-                  className={`${cardClasses} p-4 transition-all duration-200`}
-                  onClick={() => setSelectedPatient(patient)}
-                >
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex-1">
-                      <div className="font-semibold text-gray-900 dark:text-gray-100 text-base">
-                        {patient.nom.toUpperCase()} {patient.prenom}
+          <>
+            <div className="space-y-4">
+              {currentPatients.map(patient => {
+                const { total } = getPatientData(patient);
+                return (
+                  <div 
+                    key={patient.cinPatient} 
+                    className={`${cardClasses} p-4 transition-all duration-200`}
+                    onClick={() => setSelectedPatient(patient)}
+                  >
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex-1">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-base">
+                          {patient.nom.toUpperCase()} {patient.prenom}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          CIN: {patient.cinPatient}
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {patient.age} ans • {patient.sexe}
+                        </div>
                       </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        CIN: {patient.cinPatient}
-                      </div>
-                      <div className="text-xs text-gray-500 dark:text-gray-400">
-                        {patient.age} ans • {patient.sexe}
+                      <div className="text-right ml-3">
+                        <div className="text-lg font-bold text-teal-600 dark:text-teal-400">
+                          {total} Ar
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right ml-3">
-                      <div className="text-lg font-bold text-teal-600 dark:text-teal-400">
-                        {total} Ar
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="text-xs text-gray-600 dark:text-gray-300 mb-3">
-                    <div>📱 {patient.telephone || '-'}</div>
-                    <div className="truncate">✉️ {patient.email || 'Non renseigné'}</div>
-                  </div>
-
-                  <div className="flex gap-2" onClick={e => e.stopPropagation()}>
-                    <button 
-                      onClick={() => setSelectedPatient(patient)}
-                      className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all text-xs font-semibold flex items-center justify-center gap-1"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      Détails
-                    </button>
                     
-                    <button 
-                      onClick={(e) => printPatient(e, patient)}
-                      className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl hover:from-purple-600 hover:to-indigo-600 transition-all text-xs font-semibold flex items-center justify-center gap-1"
-                    >
-                      <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                      </svg>
-                      Imprimer
-                    </button>
+                    <div className="text-xs text-gray-600 dark:text-gray-300 mb-3">
+                      <div>📱 {patient.telephone || '-'}</div>
+                      <div className="truncate">✉️ {patient.email || 'Non renseigné'}</div>
+                    </div>
+
+                    <div className="flex gap-2" onClick={e => e.stopPropagation()}>
+                      <button 
+                        onClick={() => setSelectedPatient(patient)}
+                        className="flex-1 px-3 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all text-xs font-semibold flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        Détails
+                      </button>
+                      
+                      <button 
+                        onClick={(e) => printPatient(e, patient)}
+                        className="flex-1 px-3 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl hover:from-purple-600 hover:to-indigo-600 transition-all text-xs font-semibold flex items-center justify-center gap-1"
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                        </svg>
+                        Imprimer
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
+            
+            {/* Pagination Mobile Simple */}
+            <PaginationSimple />
             
             {/* Total Général Mobile */}
-            <div className={`${cardClasses} p-4 font-bold ${
+            <div className={`${cardClasses} p-4 font-bold mt-4 ${
               darkMode 
                 ? 'bg-gradient-to-r from-emerald-900/20 to-green-900/20' 
                 : 'bg-gradient-to-r from-emerald-50 to-green-50'
@@ -1064,110 +1113,115 @@ const FactureTousPatients = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </>
         ) : (
           /* Tableau Desktop */
-          <div className={`${cardClasses} overflow-hidden`}>
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[800px]">
-                <thead className={`sticky top-0 ${
-                  darkMode
-                    ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white'
-                    : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
-                }`}>
-                  <tr>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">CIN Patient</th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Informations Patient</th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Contact</th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-right font-semibold text-sm sm:text-base">Total Facturé</th>
-                    <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className={`divide-y ${
-                  darkMode ? 'divide-gray-700' : 'divide-gray-100'
-                }`}>
-                  {filteredPatients.map(patient => {
-                    const { total } = getPatientData(patient);
-                    return (
-                      <tr 
-                        key={patient.cinPatient} 
-                        className={`transition-all duration-200 cursor-pointer ${
-                          darkMode 
-                            ? 'hover:bg-teal-900/20' 
-                            : 'hover:bg-teal-50/50'
-                        }`}
-                        onClick={() => setSelectedPatient(patient)}
-                      >
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono text-xs sm:text-sm font-semibold text-teal-700 dark:text-teal-300">
-                          {patient.cinPatient}
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4">
-                          <div className="font-semibold text-gray-900 dark:text-gray-100">
-                            {patient.nom.toUpperCase()} {patient.prenom}
-                          </div>
-                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
-                            {patient.age} ans • {patient.sexe}
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4">
-                          <div>{patient.telephone || '-'}</div>
-                          <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
-                            {patient.email || 'Non renseigné'}
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
-                          <div className="text-lg sm:text-xl lg:text-2xl font-bold text-teal-600 dark:text-teal-400">
-                            {total} Ar
-                          </div>
-                        </td>
-                        <td className="px-4 sm:px-6 py-3 sm:py-4 text-center" onClick={e => e.stopPropagation()}>
-                          <div className="flex justify-center gap-2">
-                            <button 
-                              onClick={() => setSelectedPatient(patient)}
-                              className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all shadow-md flex items-center gap-2 text-xs sm:text-sm font-semibold"
-                            >
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                              </svg>
-                              Détails
-                            </button>
-                            
-                            <button 
-                              onClick={(e) => printPatient(e, patient)}
-                              className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl hover:from-purple-600 hover:to-indigo-600 transition-all shadow-md flex items-center gap-2 text-xs sm:text-sm font-semibold"
-                            >
-                              <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
-                              </svg>
-                              Imprimer
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                  
-                  {/* Total Général */}
-                  <tr className={`font-bold ${
-                    darkMode 
-                      ? 'bg-gradient-to-r from-emerald-900/20 to-green-900/20' 
-                      : 'bg-gradient-to-r from-emerald-50 to-green-50'
+          <>
+            <div className={`${cardClasses} overflow-hidden`}>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className={`sticky top-0 ${
+                    darkMode
+                      ? 'bg-gradient-to-r from-teal-600 to-cyan-600 text-white'
+                      : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
                   }`}>
-                    <td colSpan="3" className="px-4 sm:px-6 py-4 sm:py-6 text-right text-gray-700 dark:text-gray-300 text-sm sm:text-base lg:text-lg">
-                      CHIFFRE D'AFFAIRES TOTAL
-                    </td>
-                    <td className="px-4 sm:px-6 py-4 sm:py-6 text-right">
-                      <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
-                        {totalGeneral} Ar
-                      </div>
-                    </td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
+                    <tr>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">CIN Patient</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Informations Patient</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Contact</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-right font-semibold text-sm sm:text-base">Total Facturé</th>
+                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-center font-semibold text-sm sm:text-base">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className={`divide-y ${
+                    darkMode ? 'divide-gray-700' : 'divide-gray-100'
+                  }`}>
+                    {currentPatients.map(patient => {
+                      const { total } = getPatientData(patient);
+                      return (
+                        <tr 
+                          key={patient.cinPatient} 
+                          className={`transition-all duration-200 cursor-pointer ${
+                            darkMode 
+                              ? 'hover:bg-teal-900/20' 
+                              : 'hover:bg-teal-50/50'
+                          }`}
+                          onClick={() => setSelectedPatient(patient)}
+                        >
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono text-xs sm:text-sm font-semibold text-teal-700 dark:text-teal-300">
+                            {patient.cinPatient}
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="font-semibold text-gray-900 dark:text-gray-100">
+                              {patient.nom.toUpperCase()} {patient.prenom}
+                            </div>
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
+                              {patient.age} ans • {patient.sexe}
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div>{patient.telephone || '-'}</div>
+                            <div className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 truncate max-w-xs">
+                              {patient.email || 'Non renseigné'}
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-right">
+                            <div className="text-lg sm:text-xl lg:text-2xl font-bold text-teal-600 dark:text-teal-400">
+                              {total} Ar
+                            </div>
+                          </td>
+                          <td className="px-4 sm:px-6 py-3 sm:py-4 text-center" onClick={e => e.stopPropagation()}>
+                            <div className="flex justify-center gap-2">
+                              <button 
+                                onClick={() => setSelectedPatient(patient)}
+                                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white rounded-xl hover:from-blue-600 hover:to-cyan-600 transition-all shadow-md flex items-center gap-2 text-xs sm:text-sm font-semibold"
+                              >
+                                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                Détails
+                              </button>
+                              
+                              <button 
+                                onClick={(e) => printPatient(e, patient)}
+                                className="px-3 sm:px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-xl hover:from-purple-600 hover:to-indigo-600 transition-all shadow-md flex items-center gap-2 text-xs sm:text-sm font-semibold"
+                              >
+                                <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                                </svg>
+                                Imprimer
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    
+                    {/* Total Général */}
+                    <tr className={`font-bold ${
+                      darkMode 
+                        ? 'bg-gradient-to-r from-emerald-900/20 to-green-900/20' 
+                        : 'bg-gradient-to-r from-emerald-50 to-green-50'
+                    }`}>
+                      <td colSpan="3" className="px-4 sm:px-6 py-4 sm:py-6 text-right text-gray-700 dark:text-gray-300 text-sm sm:text-base lg:text-lg">
+                        CHIFFRE D'AFFAIRES TOTAL
+                      </td>
+                      <td className="px-4 sm:px-6 py-4 sm:py-6 text-right">
+                        <div className="text-xl sm:text-2xl lg:text-3xl font-bold text-emerald-600 dark:text-emerald-400">
+                          {totalGeneral} Ar
+                        </div>
+                      </td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
+
+            {/* Pagination Desktop Simple */}
+            <PaginationSimple />
+          </>
         )}
 
         {/* Modal Détails Patient */}

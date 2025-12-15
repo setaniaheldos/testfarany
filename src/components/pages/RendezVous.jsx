@@ -4,7 +4,8 @@ import * as XLSX from "xlsx";
 import { 
   Plus, Search, Edit2, Trash2, ChevronUp, ChevronDown, RefreshCw, Check, X, 
   CalendarCheck, CalendarX, Clock4, Download, User, Stethoscope, Filter, 
-  Eye, Calendar, Users, FileText, Phone, AlertCircle, CheckCircle, XCircle, Clock
+  Eye, Calendar, Users, FileText, Phone, AlertCircle, CheckCircle, XCircle, Clock,
+  Moon, Sun, Mail, MapPin
 } from 'lucide-react';
 
 export default function Rendezvous() {
@@ -37,6 +38,20 @@ export default function Rendezvous() {
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [loading, setLoading] = useState(false);
   const [exportLoading, setExportLoading] = useState(false);
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode');
+    return saved ? JSON.parse(saved) : false;
+  });
+
+  // Appliquer le mode sombre
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', darkMode);
+    localStorage.setItem('darkMode', JSON.stringify(darkMode));
+  }, [darkMode]);
+
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
 
   // === Notifications ===
   const notify = (message, type = 'success') => {
@@ -171,14 +186,83 @@ export default function Rendezvous() {
     }
   };
 
+  // MODIFICATION: Fonctions améliorées pour gérer les cas sans CIN
   const getPatientInfo = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return { 
+        fullName: 'Patient non assigné', 
+        tel: '', 
+        email: '', 
+        nom: 'Non', 
+        prenom: 'assigné',
+        adresse: ''
+      };
+    }
+    
     const p = patients.find(p => p.cinPatient === cin);
-    return p ? { ...p, fullName: `${p.nom} ${p.prenom}` } : { fullName: 'Inconnu', tel: '', email: '' };
+    if (p) {
+      return { 
+        ...p, 
+        fullName: `${p.nom || ''} ${p.prenom || ''}`.trim() || 'Nom inconnu'
+      };
+    }
+    
+    // Chercher par ID si CIN non trouvé
+    const pById = patients.find(p => p.idPatient && p.idPatient.toString() === cin);
+    if (pById) {
+      return { 
+        ...pById, 
+        fullName: `${pById.nom || ''} ${pById.prenom || ''}`.trim() || 'Nom inconnu'
+      };
+    }
+    
+    return { 
+      fullName: 'Patient inconnu', 
+      tel: '', 
+      email: '', 
+      nom: 'Inconnu', 
+      prenom: '',
+      adresse: ''
+    };
   };
 
   const getPraticienInfo = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return { 
+        fullName: 'Praticien non assigné', 
+        specialite: '', 
+        nom: 'Non', 
+        prenom: 'assigné',
+        tel: '',
+        email: ''
+      };
+    }
+    
     const pr = praticiens.find(pr => pr.cinPraticien === cin);
-    return pr ? { ...pr, fullName: `Dr ${pr.nom} ${pr.prenom}` } : { fullName: 'Inconnu', specialite: '' };
+    if (pr) {
+      return { 
+        ...pr, 
+        fullName: `Dr ${pr.nom || ''} ${pr.prenom || ''}`.trim() || 'Dr Nom inconnu'
+      };
+    }
+    
+    // Chercher par ID si CIN non trouvé
+    const prById = praticiens.find(pr => pr.idPraticien && pr.idPraticien.toString() === cin);
+    if (prById) {
+      return { 
+        ...prById, 
+        fullName: `Dr ${prById.nom || ''} ${prById.prenom || ''}`.trim() || 'Dr Nom inconnu'
+      };
+    }
+    
+    return { 
+      fullName: 'Praticien inconnu', 
+      specialite: '', 
+      nom: 'Inconnu', 
+      prenom: '',
+      tel: '',
+      email: ''
+    };
   };
 
   // Filtrage et tri
@@ -238,6 +322,7 @@ export default function Rendezvous() {
           'ID': r.idRdv,
           'Patient': patientInfo.fullName,
           'Téléphone Patient': patientInfo.tel || '-',
+          'Email Patient': patientInfo.email || '-',
           'Praticien': praticienInfo.fullName,
           'Spécialité': praticienInfo.specialite || '-',
           'Date': new Date(r.dateHeure).toLocaleDateString('fr-FR'),
@@ -260,14 +345,44 @@ export default function Rendezvous() {
     }
   };
 
-  // === Styles utilitaires ===
+  // === Classes CSS conditionnelles pour le mode sombre ===
+  const containerClasses = `min-h-screen transition-colors duration-300 ${
+    darkMode 
+      ? 'bg-gradient-to-br from-gray-900 to-gray-800 text-gray-100' 
+      : 'bg-gradient-to-br from-blue-50 to-cyan-50 text-gray-800'
+  }`;
+
+  const cardClasses = `rounded-xl shadow-sm border transition-all duration-300 backdrop-blur-sm ${
+    darkMode 
+      ? 'bg-gray-800/80 border-gray-700' 
+      : 'bg-white/80 border-gray-200'
+  }`;
+
+  const inputClasses = `rounded-lg border focus:outline-none focus:ring-1 transition-all duration-300 text-sm ${
+    darkMode
+      ? 'bg-gray-700 border-gray-600 text-gray-100 placeholder-gray-400 focus:ring-blue-500 focus:border-blue-500'
+      : 'bg-white border-gray-200 text-gray-900 placeholder-gray-500 focus:ring-blue-500 focus:border-blue-500'
+  }`;
+
   const statutStyle = (s) => {
     const baseStyles = "px-2 py-1 rounded-full text-xs font-semibold border flex items-center gap-1 transition-all duration-200";
     
     const styles = {
-      confirme: `${baseStyles} bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800`,
-      annule: `${baseStyles} bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800`,
-      en_attente: `${baseStyles} bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-800`
+      confirme: `${baseStyles} ${
+        darkMode 
+          ? 'bg-emerald-900/20 text-emerald-300 border-emerald-800' 
+          : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+      }`,
+      annule: `${baseStyles} ${
+        darkMode 
+          ? 'bg-red-900/20 text-red-300 border-red-800' 
+          : 'bg-red-50 text-red-700 border-red-200'
+      }`,
+      en_attente: `${baseStyles} ${
+        darkMode 
+          ? 'bg-amber-900/20 text-amber-300 border-amber-800' 
+          : 'bg-amber-50 text-amber-700 border-amber-200'
+      }`
     };
     
     return styles[s] || styles.en_attente;
@@ -278,16 +393,71 @@ export default function Rendezvous() {
     
     if (activeFilter === filter) {
       const activeStyles = {
-        tous: `${baseStyles} bg-blue-500 text-white shadow-sm`,
-        en_attente: `${baseStyles} bg-amber-500 text-white shadow-sm`,
-        confirme: `${baseStyles} bg-emerald-500 text-white shadow-sm`,
-        annule: `${baseStyles} bg-red-500 text-white shadow-sm`
+        tous: `${baseStyles} ${
+          darkMode 
+            ? 'bg-blue-600 text-white shadow-lg' 
+            : 'bg-blue-500 text-white shadow-sm'
+        }`,
+        en_attente: `${baseStyles} ${
+          darkMode 
+            ? 'bg-amber-600 text-white shadow-lg' 
+            : 'bg-amber-500 text-white shadow-sm'
+        }`,
+        confirme: `${baseStyles} ${
+          darkMode 
+            ? 'bg-emerald-600 text-white shadow-lg' 
+            : 'bg-emerald-500 text-white shadow-sm'
+        }`,
+        annule: `${baseStyles} ${
+          darkMode 
+            ? 'bg-red-600 text-white shadow-lg' 
+            : 'bg-red-500 text-white shadow-sm'
+        }`
       };
       return activeStyles[filter];
     }
     
-    return `${baseStyles} bg-white/80 dark:bg-gray-700/80 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-600`;
+    return `${baseStyles} ${
+      darkMode 
+        ? 'bg-gray-700/80 text-gray-300 border border-gray-600 hover:bg-gray-600' 
+        : 'bg-white/80 text-gray-700 border border-gray-200 hover:bg-gray-50'
+    }`;
   };
+
+  const buttonStyle = (color = 'blue') => {
+    const colors = {
+      blue: `bg-blue-500 hover:bg-blue-600 ${darkMode ? 'text-white' : 'text-white'}`,
+      green: `bg-emerald-500 hover:bg-emerald-600 ${darkMode ? 'text-white' : 'text-white'}`,
+      purple: `bg-purple-500 hover:bg-purple-600 ${darkMode ? 'text-white' : 'text-white'}`,
+      gray: `bg-gray-500 hover:bg-gray-600 ${darkMode ? 'text-white' : 'text-white'}`
+    };
+    return `${colors[color]} text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm shadow-sm transition-colors`;
+  };
+
+  const StatCard = ({ title, value, icon, color, onClick }) => (
+    <div 
+      onClick={onClick}
+      className={`${cardClasses} p-4 transition-all duration-200 cursor-pointer ${onClick ? 'hover:scale-105' : ''}`}
+    >
+      <div className="flex items-center justify-between">
+        <div>
+          <p className={`text-xs font-medium mb-1 ${
+            darkMode ? 'text-gray-400' : 'text-gray-600'
+          }`}>
+            {title}
+          </p>
+          <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
+        </div>
+        <div className={`p-2 rounded-lg ${
+          darkMode 
+            ? `bg-${color}-900/30 text-${color}-400` 
+            : `bg-${color}-100 text-${color}-600`
+        }`}>
+          {icon}
+        </div>
+      </div>
+    </div>
+  );
 
   const StatutIcon = ({ s, size = 12 }) => {
     const icons = {
@@ -303,26 +473,8 @@ export default function Rendezvous() {
     return sortOrder === 'asc' ? <ChevronUp className="w-3 h-3 inline" /> : <ChevronDown className="w-3 h-3 inline" />;
   };
 
-  const StatCard = ({ title, value, icon, color, onClick }) => (
-    <div 
-      onClick={onClick}
-      className={`bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-4 border border-gray-200 dark:border-gray-700 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md ${onClick ? 'hover:scale-105' : ''}`}
-    >
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">{title}</p>
-          <p className="text-xl font-bold text-gray-900 dark:text-white">{value}</p>
-        </div>
-        <div className={`p-2 rounded-lg bg-${color}-100 dark:bg-${color}-900/30 text-${color}-600 dark:text-${color}-400`}>
-          {icon}
-        </div>
-      </div>
-    </div>
-  );
-
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-gray-900 dark:to-blue-900 transition-colors w-full">
-
+    <div className={containerClasses}>
       {/* Notification */}
       {notification.show && (
         <div className={`fixed top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg text-white font-medium flex items-center gap-2 transition-all duration-300 ${
@@ -339,18 +491,18 @@ export default function Rendezvous() {
       )}
 
       {/* Header compact */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border-b border-white/20 dark:border-gray-700/50">
+      <div className={darkMode ? 'bg-gray-800/80 backdrop-blur-sm border-b border-gray-700/50' : 'bg-white/80 backdrop-blur-sm border-b border-white/20'}>
         <div className="px-6 py-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-white mb-1">
-                Rendez-vous
+                📅 Rendez-vous
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {filteredRdvs.length} rendez-vous trouvés
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-4">
               <div className="text-right">
                 <p className="text-xs text-gray-500 dark:text-gray-400">Aujourd'hui</p>
                 <p className="text-lg font-bold text-gray-900 dark:text-white">{stats.aujourdhui}</p>
@@ -358,6 +510,16 @@ export default function Rendezvous() {
               <div className="p-2 bg-blue-500 rounded-lg shadow-sm">
                 <Calendar className="w-4 h-4 text-white" />
               </div>
+              <button
+                onClick={toggleDarkMode}
+                className={`p-2 rounded-lg transition-all duration-300 ${
+                  darkMode 
+                    ? 'bg-gradient-to-r from-yellow-400 to-amber-400 text-gray-900 hover:from-yellow-300 hover:to-amber-300' 
+                    : 'bg-gradient-to-r from-gray-800 to-gray-900 text-white hover:from-gray-700 hover:to-gray-800'
+                }`}
+              >
+                {darkMode ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+              </button>
             </div>
           </div>
         </div>
@@ -399,7 +561,7 @@ export default function Rendezvous() {
         </div>
 
         {/* Barre d'actions compacte */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-sm p-4 mb-4 border border-gray-200 dark:border-gray-700">
+        <div className={`${cardClasses} p-4 mb-4`}>
           <div className="flex flex-col lg:flex-row gap-3 justify-between items-start lg:items-center">
             <div className="flex flex-wrap gap-2">
               <button onClick={() => setActiveFilter('tous')} className={filterButtonStyle('tous')}>
@@ -418,11 +580,13 @@ export default function Rendezvous() {
 
             <div className="flex flex-col sm:flex-row gap-2 w-full lg:w-auto">
               <div className="relative flex-1 min-w-[200px]">
-                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 text-gray-400 w-3 h-3" />
+                <Search className={`absolute left-2 top-1/2 transform -translate-y-1/2 w-3 h-3 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-400'
+                }`} />
                 <input
                   type="text"
-                  placeholder="Patient..."
-                  className="w-full pl-7 pr-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  placeholder="Rechercher patient..."
+                  className={`${inputClasses} w-full pl-7 pr-3 py-2`}
                   value={search.patient}
                   onChange={(e) => setSearch({ ...search, patient: e.target.value })}
                 />
@@ -430,7 +594,7 @@ export default function Rendezvous() {
               <div className="flex gap-2">
                 <button 
                   onClick={toggleForm} 
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm shadow-sm transition-colors"
+                  className={buttonStyle('blue')}
                 >
                   {showAddForm ? <X className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
                   {showAddForm ? 'Fermer' : 'Nouveau'}
@@ -438,14 +602,14 @@ export default function Rendezvous() {
                 <button 
                   onClick={handleExportExcel} 
                   disabled={exportLoading}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-2 rounded-lg flex items-center gap-1 text-sm shadow-sm transition-colors disabled:opacity-50"
+                  className={buttonStyle('green')}
                 >
                   <Download className="w-3 h-3" /> 
                   {exportLoading ? '...' : 'Excel'}
                 </button>
                 <button 
                   onClick={fetchAllData} 
-                  className="bg-purple-500 hover:bg-purple-600 text-white p-2 rounded-lg shadow-sm transition-colors"
+                  className={buttonStyle('purple')}
                 >
                   <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
                 </button>
@@ -456,12 +620,14 @@ export default function Rendezvous() {
 
         {/* Formulaire compact */}
         {showAddForm && (
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-sm p-4 mb-4 border border-gray-200 dark:border-gray-700">
+          <div className={`${cardClasses} p-4 mb-4`}>
             <div className="flex items-center gap-2 mb-4">
               <div className="p-1 bg-blue-500 rounded">
                 <CalendarCheck className="w-4 h-4 text-white" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className={`text-lg font-semibold ${
+                darkMode ? 'text-gray-200' : 'text-gray-800'
+              }`}>
                 {isEditing ? 'Modifier RDV' : 'Nouveau RDV'}
               </h3>
             </div>
@@ -473,12 +639,12 @@ export default function Rendezvous() {
                   value={form.cinPatient} 
                   onChange={handleChange} 
                   required 
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  className={inputClasses}
                 >
-                  <option value="" disabled>Patient...</option>
+                  <option value="" disabled>Sélectionner un patient...</option>
                   {patients.map(p => (
-                    <option key={p.cinPatient} value={p.cinPatient}>
-                      {p.nom} {p.prenom}
+                    <option key={p.cinPatient || p.idPatient} value={p.cinPatient || p.idPatient}>
+                      {p.nom} {p.prenom} {p.cinPatient ? `(CIN: ${p.cinPatient})` : '(Sans CIN)'}
                     </option>
                   ))}
                 </select>
@@ -488,12 +654,12 @@ export default function Rendezvous() {
                   value={form.cinPraticien} 
                   onChange={handleChange} 
                   required 
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  className={inputClasses}
                 >
-                  <option value="" disabled>Praticien...</option>
+                  <option value="" disabled>Sélectionner un praticien...</option>
                   {praticiens.map(pr => (
-                    <option key={pr.cinPraticien} value={pr.cinPraticien}>
-                      Dr {pr.nom} {pr.prenom}
+                    <option key={pr.cinPraticien || pr.idPraticien} value={pr.cinPraticien || pr.idPraticien}>
+                      Dr {pr.nom} {pr.prenom} {pr.cinPraticien ? `(CIN: ${pr.cinPraticien})` : '(Sans CIN)'}
                     </option>
                   ))}
                 </select>
@@ -505,14 +671,14 @@ export default function Rendezvous() {
                   onChange={handleChange}
                   required
                   min={new Date().toISOString().slice(0, 16)}
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  className={inputClasses}
                 />
 
                 <select 
                   name="statut" 
                   value={form.statut} 
                   onChange={handleChange} 
-                  className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 text-sm"
+                  className={inputClasses}
                 >
                   <option value="en_attente">En attente</option>
                   <option value="confirme">Confirmé</option>
@@ -520,10 +686,29 @@ export default function Rendezvous() {
                 </select>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <input
+                  type="text"
+                  name="idRdvParent"
+                  placeholder="ID RDV parent (optionnel)"
+                  value={form.idRdvParent}
+                  onChange={handleChange}
+                  className={inputClasses}
+                />
+                <input
+                  type="text"
+                  name="notes"
+                  placeholder="Notes (optionnel)"
+                  value={form.notes}
+                  onChange={handleChange}
+                  className={inputClasses}
+                />
+              </div>
+
               <div className="flex gap-2 justify-end">
                 <button 
                   type="submit" 
-                  className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm transition-colors"
+                  className={buttonStyle('blue')}
                 >
                   <Check className="w-3 h-3" />
                   {isEditing ? 'Modifier' : 'Créer'}
@@ -531,7 +716,7 @@ export default function Rendezvous() {
                 <button 
                   type="button" 
                   onClick={toggleForm} 
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                  className={buttonStyle('gray')}
                 >
                   Annuler
                 </button>
@@ -541,13 +726,17 @@ export default function Rendezvous() {
         )}
 
         {/* Tableau compact */}
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl shadow-sm overflow-hidden border border-gray-200 dark:border-gray-700">
+        <div className={`${cardClasses} overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+              <thead className={darkMode ? 'bg-gray-700' : 'bg-gray-50'}>
                 <tr>
                   <th 
-                    className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    className={`px-3 py-2 text-left font-semibold cursor-pointer transition-colors ${
+                      darkMode 
+                        ? 'text-gray-300 hover:bg-gray-600' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                     onClick={() => handleSort('dateHeure')}
                   >
                     <div className="flex items-center gap-1">
@@ -556,25 +745,37 @@ export default function Rendezvous() {
                       <SortIcon field="dateHeure" />
                     </div>
                   </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
+                  <th className={`px-3 py-2 text-left font-semibold ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Patient
                   </th>
-                  <th className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300">
+                  <th className={`px-3 py-2 text-left font-semibold ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Praticien
                   </th>
                   <th 
-                    className="px-3 py-2 text-left font-semibold text-gray-700 dark:text-gray-300 cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+                    className={`px-3 py-2 text-left font-semibold cursor-pointer transition-colors ${
+                      darkMode 
+                        ? 'text-gray-300 hover:bg-gray-600' 
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
                     onClick={() => handleSort('statut')}
                   >
                     Statut
                     <SortIcon field="statut" />
                   </th>
-                  <th className="px-3 py-2 text-center font-semibold text-gray-700 dark:text-gray-300">
+                  <th className={`px-3 py-2 text-center font-semibold ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100 dark:divide-gray-600">
+              <tbody className={`divide-y ${
+                darkMode ? 'divide-gray-600' : 'divide-gray-100'
+              }`}>
                 {loading ? (
                   <tr>
                     <td colSpan={5} className="text-center py-8">
@@ -586,7 +787,9 @@ export default function Rendezvous() {
                   </tr>
                 ) : paginatedRdvs.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="text-center py-8 text-gray-400 dark:text-gray-500">
+                    <td colSpan={5} className={`text-center py-8 ${
+                      darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
                       <div className="flex flex-col items-center gap-2">
                         <CalendarCheck className="w-8 h-8 opacity-50" />
                         <p className="text-sm">Aucun rendez-vous</p>
@@ -600,37 +803,73 @@ export default function Rendezvous() {
                     const isPast = new Date(r.dateHeure) < new Date();
                     
                     return (
-                      <tr key={r.idRdv} className={`hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors ${
-                        isPast ? 'opacity-60' : ''
-                      }`}>
+                      <tr key={r.idRdv} className={`transition-colors ${
+                        darkMode 
+                          ? 'hover:bg-gray-700' 
+                          : 'hover:bg-gray-50'
+                      } ${isPast ? 'opacity-60' : ''}`}>
                         <td className="px-3 py-2">
                           <div className="flex flex-col">
-                            <span className={`font-medium ${isPast ? 'text-gray-500' : 'text-gray-900 dark:text-gray-100'}`}>
+                            <span className={`font-medium ${
+                              isPast 
+                                ? 'text-gray-500' 
+                                : darkMode 
+                                  ? 'text-gray-100' 
+                                  : 'text-gray-900'
+                            }`}>
                               {new Date(r.dateHeure).toLocaleDateString('fr-FR')}
                             </span>
-                            <span className={`text-xs ${isPast ? 'text-gray-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <span className={`text-xs ${
+                              isPast 
+                                ? 'text-gray-400' 
+                                : darkMode 
+                                  ? 'text-gray-400' 
+                                  : 'text-gray-500'
+                            }`}>
                               {new Date(r.dateHeure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                          <div className="flex items-start gap-2">
+                            <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center mt-1 flex-shrink-0">
                               <User className="w-3 h-3 text-white" />
                             </div>
-                            <span className="font-medium text-gray-800 dark:text-gray-200 truncate max-w-[120px]">
-                              {patientInfo.fullName}
-                            </span>
+                            <div className="min-w-0">
+                              <span className={`font-medium truncate block ${
+                                darkMode ? 'text-gray-200' : 'text-gray-800'
+                              }`}>
+                                {patientInfo.fullName}
+                              </span>
+                              {patientInfo.tel && (
+                                <span className={`text-xs truncate block ${
+                                  darkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  📞 {patientInfo.tel}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center">
+                          <div className="flex items-start gap-2">
+                            <div className="w-6 h-6 bg-cyan-500 rounded-full flex items-center justify-center mt-1 flex-shrink-0">
                               <Stethoscope className="w-3 h-3 text-white" />
                             </div>
-                            <span className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]">
-                              {praticienInfo.fullName}
-                            </span>
+                            <div className="min-w-0">
+                              <span className={`truncate block ${
+                                darkMode ? 'text-gray-300' : 'text-gray-700'
+                              }`}>
+                                {praticienInfo.fullName}
+                              </span>
+                              {praticienInfo.specialite && (
+                                <span className={`text-xs truncate block ${
+                                  darkMode ? 'text-gray-400' : 'text-gray-500'
+                                }`}>
+                                  🩺 {praticienInfo.specialite}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-3 py-2">
@@ -643,14 +882,22 @@ export default function Rendezvous() {
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => handleQuickStatusUpdate(r.idRdv, 'confirme')}
-                                  className="p-1 text-emerald-600 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 rounded transition-colors"
+                                  className={`p-1 rounded transition-colors ${
+                                    darkMode 
+                                      ? 'text-emerald-400 hover:bg-emerald-900/30' 
+                                      : 'text-emerald-600 hover:bg-emerald-100'
+                                  }`}
                                   title="Confirmer"
                                 >
                                   <Check className="w-4 h-4" />
                                 </button>
                                 <button
                                   onClick={() => handleQuickStatusUpdate(r.idRdv, 'annule')}
-                                  className="p-1 text-red-600 hover:bg-red-100 dark:hover:bg-red-900/30 rounded transition-colors"
+                                  className={`p-1 rounded transition-colors ${
+                                    darkMode 
+                                      ? 'text-red-400 hover:bg-red-900/30' 
+                                      : 'text-red-600 hover:bg-red-100'
+                                  }`}
                                   title="Annuler"
                                 >
                                   <X className="w-4 h-4" />
@@ -663,24 +910,42 @@ export default function Rendezvous() {
                           <div className="flex justify-center gap-2">
                             <button 
                               onClick={() => showDetails(r)} 
-                              className="p-2 bg-blue-100 hover:bg-blue-200 dark:bg-blue-900/40 dark:hover:bg-blue-800/60 rounded-lg transition-colors"
+                              className={`p-2 rounded-lg transition-colors ${
+                                darkMode 
+                                  ? 'bg-blue-900/40 hover:bg-blue-800/60' 
+                                  : 'bg-blue-100 hover:bg-blue-200'
+                              }`}
                               title="Voir les détails"
                             >
-                              <Eye className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                              <Eye className={`w-4 h-4 ${
+                                darkMode ? 'text-blue-400' : 'text-blue-600'
+                              }`} />
                             </button>
                             <button 
                               onClick={() => handleEdit(r)} 
-                              className="p-2 bg-amber-100 hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-800/60 rounded-lg transition-colors"
+                              className={`p-2 rounded-lg transition-colors ${
+                                darkMode 
+                                  ? 'bg-amber-900/40 hover:bg-amber-800/60' 
+                                  : 'bg-amber-100 hover:bg-amber-200'
+                              }`}
                               title="Modifier"
                             >
-                              <Edit2 className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                              <Edit2 className={`w-4 h-4 ${
+                                darkMode ? 'text-amber-400' : 'text-amber-600'
+                              }`} />
                             </button>
                             <button 
                               onClick={() => handleDelete(r.idRdv)} 
-                              className="p-2 bg-red-100 hover:bg-red-200 dark:bg-red-900/40 dark:hover:bg-red-800/60 rounded-lg transition-colors"
+                              className={`p-2 rounded-lg transition-colors ${
+                                darkMode 
+                                  ? 'bg-red-900/40 hover:bg-red-800/60' 
+                                  : 'bg-red-100 hover:bg-red-200'
+                              }`}
                               title="Supprimer"
                             >
-                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                              <Trash2 className={`w-4 h-4 ${
+                                darkMode ? 'text-red-400' : 'text-red-600'
+                              }`} />
                             </button>
                           </div>
                         </td>
@@ -694,25 +959,41 @@ export default function Rendezvous() {
 
           {/* Pagination compacte */}
           {paginatedRdvs.length > 0 && (
-            <div className="flex flex-wrap justify-between items-center px-3 py-2 bg-gray-50/50 dark:bg-gray-700/50 border-t border-gray-100 dark:border-gray-600 gap-2 text-xs">
-              <div className="text-gray-600 dark:text-gray-400">
+            <div className={`flex flex-wrap justify-between items-center px-3 py-2 gap-2 text-xs border-t ${
+              darkMode 
+                ? 'bg-gray-700/50 border-gray-600 text-gray-400' 
+                : 'bg-gray-50/50 border-gray-100 text-gray-600'
+            }`}>
+              <div>
                 {filteredRdvs.length} RDV
               </div>
               <div className="flex gap-1">
                 <button
                   onClick={() => setPage(p => Math.max(1, p - 1))}
                   disabled={page === 1}
-                  className="px-2 py-1 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-gray-700 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className={`px-2 py-1 rounded border transition-colors disabled:opacity-50 ${
+                    darkMode 
+                      ? 'bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500' 
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
                 >
                   Préc
                 </button>
-                <span className="px-2 py-1 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-gray-700 dark:text-gray-300 font-medium">
+                <span className={`px-2 py-1 rounded border font-medium ${
+                  darkMode 
+                    ? 'bg-gray-600 border-gray-500 text-gray-300' 
+                    : 'bg-white border-gray-200 text-gray-700'
+                }`}>
                   {page}/{totalPages}
                 </span>
                 <button
                   onClick={() => setPage(p => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
-                  className="px-2 py-1 bg-white dark:bg-gray-600 border border-gray-200 dark:border-gray-500 rounded text-gray-700 dark:text-gray-300 disabled:opacity-50 hover:bg-gray-50 dark:hover:bg-gray-500 transition-colors"
+                  className={`px-2 py-1 rounded border transition-colors disabled:opacity-50 ${
+                    darkMode 
+                      ? 'bg-gray-600 border-gray-500 text-gray-300 hover:bg-gray-500' 
+                      : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
+                  }`}
                 >
                   Suiv
                 </button>
@@ -722,16 +1003,26 @@ export default function Rendezvous() {
         </div>
       </div>
 
-      {/* Modal de détails */}
+      {/* Modal de détails amélioré */}
       {showDetailModal && selectedRdv && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-md w-full">
-            <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+          <div className={`rounded-lg shadow-lg max-w-md w-full max-h-[90vh] overflow-y-auto ${
+            darkMode ? 'bg-gray-800' : 'bg-white'
+          }`}>
+            <div className={`p-4 border-b ${
+              darkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Détails RDV</h3>
+                <h3 className={`text-lg font-semibold ${
+                  darkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Détails RDV #{selectedRdv.idRdv}
+                </h3>
                 <button
                   onClick={() => setShowDetailModal(false)}
-                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors"
+                  className={`p-1 rounded transition-colors ${
+                    darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  }`}
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -739,49 +1030,197 @@ export default function Rendezvous() {
             </div>
             
             <div className="p-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Patient</h4>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              {/* Informations du patient */}
+              <div>
+                <h4 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  <User className="w-4 h-4" />
+                  Patient
+                </h4>
+                <div className={`p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700/50' : 'bg-blue-50'
+                }`}>
+                  <p className={`font-semibold ${
+                    darkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
                     {getPatientInfo(selectedRdv.cinPatient).fullName}
                   </p>
-                </div>
-                <div>
-                  <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Praticien</h4>
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {getPraticienInfo(selectedRdv.cinPraticien).fullName}
-                  </p>
+                  {selectedRdv.cinPatient && (
+                    <p className={`text-xs mt-1 ${
+                      darkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      CIN: {selectedRdv.cinPatient}
+                    </p>
+                  )}
+                  {getPatientInfo(selectedRdv.cinPatient).tel && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Phone className="w-3 h-3" />
+                      <span className={`text-xs ${
+                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {getPatientInfo(selectedRdv.cinPatient).tel}
+                      </span>
+                    </div>
+                  )}
+                  {getPatientInfo(selectedRdv.cinPatient).email && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Mail className="w-3 h-3" />
+                      <span className={`text-xs ${
+                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {getPatientInfo(selectedRdv.cinPatient).email}
+                      </span>
+                    </div>
+                  )}
+                  {getPatientInfo(selectedRdv.cinPatient).adresse && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <MapPin className="w-3 h-3" />
+                      <span className={`text-xs ${
+                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {getPatientInfo(selectedRdv.cinPatient).adresse}
+                      </span>
+                    </div>
+                  )}
                 </div>
               </div>
 
+              {/* Informations du praticien */}
+              <div>
+                <h4 className={`text-sm font-medium mb-2 flex items-center gap-2 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  <Stethoscope className="w-4 h-4" />
+                  Praticien
+                </h4>
+                <div className={`p-3 rounded-lg ${
+                  darkMode ? 'bg-gray-700/50' : 'bg-cyan-50'
+                }`}>
+                  <p className={`font-semibold ${
+                    darkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {getPraticienInfo(selectedRdv.cinPraticien).fullName}
+                  </p>
+                  {selectedRdv.cinPraticien && (
+                    <p className={`text-xs mt-1 ${
+                      darkMode ? 'text-gray-400' : 'text-gray-600'
+                    }`}>
+                      CIN: {selectedRdv.cinPraticien}
+                    </p>
+                  )}
+                  {getPraticienInfo(selectedRdv.cinPraticien).specialite && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className={`text-xs font-medium px-2 py-1 rounded-full ${
+                        darkMode 
+                          ? 'bg-cyan-900/30 text-cyan-300' 
+                          : 'bg-cyan-100 text-cyan-700'
+                      }`}>
+                        {getPraticienInfo(selectedRdv.cinPraticien).specialite}
+                      </span>
+                    </div>
+                  )}
+                  {getPraticienInfo(selectedRdv.cinPraticien).tel && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <Phone className="w-3 h-3" />
+                      <span className={`text-xs ${
+                        darkMode ? 'text-gray-300' : 'text-gray-700'
+                      }`}>
+                        {getPraticienInfo(selectedRdv.cinPraticien).tel}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Date et heure */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Date</h4>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {new Date(selectedRdv.dateHeure).toLocaleDateString('fr-FR')}
+                  <h4 className={`text-sm font-medium mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    <Calendar className="w-4 h-4 inline mr-2" />
+                    Date
+                  </h4>
+                  <p className={`text-sm ${
+                    darkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
+                    {new Date(selectedRdv.dateHeure).toLocaleDateString('fr-FR', { 
+                      weekday: 'long', 
+                      year: 'numeric', 
+                      month: 'long', 
+                      day: 'numeric' 
+                    })}
                   </p>
                 </div>
                 <div>
-                  <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Heure</h4>
-                  <p className="text-sm text-gray-900 dark:text-white">
+                  <h4 className={`text-sm font-medium mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    <Clock className="w-4 h-4 inline mr-2" />
+                    Heure
+                  </h4>
+                  <p className={`text-sm ${
+                    darkMode ? 'text-white' : 'text-gray-900'
+                  }`}>
                     {new Date(selectedRdv.dateHeure).toLocaleTimeString('fr-FR')}
                   </p>
                 </div>
               </div>
 
+              {/* Statut */}
               <div>
-                <h4 className="text-sm font-medium text-gray-600 dark:text-gray-400 mb-1">Statut</h4>
+                <h4 className={`text-sm font-medium mb-1 ${
+                  darkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Statut
+                </h4>
                 <span className={statutStyle(selectedRdv.statut)}>
-                  <StatutIcon s={selectedRdv.statut} size={12} />
+                  <StatutIcon s={selectedRdv.statut} size={16} />
                   {selectedRdv.statut === 'confirme' ? 'Confirmé' : selectedRdv.statut === 'annule' ? 'Annulé' : 'En attente'}
                 </span>
               </div>
+
+              {/* Notes */}
+              {selectedRdv.notes && (
+                <div>
+                  <h4 className={`text-sm font-medium mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    <FileText className="w-4 h-4 inline mr-2" />
+                    Notes
+                  </h4>
+                  <p className={`text-sm p-3 rounded-lg ${
+                    darkMode ? 'bg-gray-700/50 text-gray-300' : 'bg-gray-50 text-gray-700'
+                  }`}>
+                    {selectedRdv.notes}
+                  </p>
+                </div>
+              )}
+
+              {/* RDV Parent */}
+              {selectedRdv.idRdvParent && (
+                <div>
+                  <h4 className={`text-sm font-medium mb-1 ${
+                    darkMode ? 'text-gray-400' : 'text-gray-600'
+                  }`}>
+                    RDV Parent
+                  </h4>
+                  <p className={`text-sm ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}>
+                    #{selectedRdv.idRdvParent}
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-2">
+            <div className={`p-4 border-t ${
+              darkMode ? 'border-gray-700' : 'border-gray-200'
+            } flex justify-end gap-2`}>
               <button
                 onClick={() => setShowDetailModal(false)}
-                className="px-3 py-2 bg-gray-500 hover:bg-gray-600 text-white rounded text-sm transition-colors"
+                className={buttonStyle('gray')}
               >
                 Fermer
               </button>
@@ -790,8 +1229,9 @@ export default function Rendezvous() {
                   handleEdit(selectedRdv);
                   setShowDetailModal(false);
                 }}
-                className="px-3 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded text-sm transition-colors"
+                className={buttonStyle('blue')}
               >
+                <Edit2 className="w-3 h-3" />
                 Modifier
               </button>
             </div>

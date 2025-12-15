@@ -25,7 +25,8 @@ import {
   MoonIcon,
   DocumentArrowDownIcon,
   ClipboardDocumentListIcon,
-  BanknotesIcon
+  BanknotesIcon,
+  IdentificationIcon
 } from "@heroicons/react/24/outline";
 
 // Constantes
@@ -106,14 +107,168 @@ export default function Consultations() {
     [rendezvous]
   );
 
+  // MODIFICATION: Fonction améliorée pour gérer les patients sans CIN
   const getPatientName = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return 'Patient non assigné';
+    }
+    
+    // Chercher par CIN dans la map
     const p = patientMap.get(cin);
-    return p ? `${p.nom.toUpperCase()} ${p.prenom}` : 'Patient inconnu';
+    if (p) {
+      return `${p.nom ? p.nom.toUpperCase() : ''} ${p.prenom || ''}`.trim() || 'Nom inconnu';
+    }
+    
+    // Si CIN non trouvé, chercher par ID dans la liste complète des patients
+    const pById = patients.find(patient => 
+      patient.idPatient && patient.idPatient.toString() === cin
+    );
+    if (pById) {
+      return `${pById.nom ? pById.nom.toUpperCase() : ''} ${pById.prenom || ''}`.trim() || 'Nom inconnu';
+    }
+    
+    // Si on arrive ici, chercher si le CIN correspond à un ID patient
+    for (const patient of patients) {
+      if (patient.idPatient && patient.idPatient.toString() === cin) {
+        return `${patient.nom ? patient.nom.toUpperCase() : ''} ${patient.prenom || ''}`.trim() || 'Nom inconnu';
+      }
+    }
+    
+    // Dernier recours : chercher par correspondance partielle du nom
+    for (const patient of patients) {
+      if (patient.cinPatient && patient.cinPatient.includes(cin)) {
+        return `${patient.nom ? patient.nom.toUpperCase() : ''} ${patient.prenom || ''}`.trim() || 'Nom inconnu';
+      }
+    }
+    
+    return 'Patient inconnu';
   };
 
+  // MODIFICATION: Fonction améliorée pour gérer les praticiens sans CIN
   const getPraticienName = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return 'Praticien non assigné';
+    }
+    
+    // Chercher par CIN dans la map
     const pr = praticienMap.get(cin);
-    return pr ? `Dr. ${pr.nom.toUpperCase()} ${pr.prenom}` : 'Praticien inconnu';
+    if (pr) {
+      return `Dr. ${pr.nom ? pr.nom.toUpperCase() : ''} ${pr.prenom || ''}`.trim() || 'Dr. Nom inconnu';
+    }
+    
+    // Si CIN non trouvé, chercher par ID dans la liste complète des praticiens
+    const prById = praticiens.find(praticien => 
+      praticien.idPraticien && praticien.idPraticien.toString() === cin
+    );
+    if (prById) {
+      return `Dr. ${prById.nom ? prById.nom.toUpperCase() : ''} ${prById.prenom || ''}`.trim() || 'Dr. Nom inconnu';
+    }
+    
+    // Si on arrive ici, chercher si le CIN correspond à un ID praticien
+    for (const praticien of praticiens) {
+      if (praticien.idPraticien && praticien.idPraticien.toString() === cin) {
+        return `Dr. ${praticien.nom ? praticien.nom.toUpperCase() : ''} ${praticien.prenom || ''}`.trim() || 'Dr. Nom inconnu';
+      }
+    }
+    
+    // Dernier recours : chercher par correspondance partielle du nom
+    for (const praticien of praticiens) {
+      if (praticien.cinPraticien && praticien.cinPraticien.includes(cin)) {
+        return `Dr. ${praticien.nom ? praticien.nom.toUpperCase() : ''} ${praticien.prenom || ''}`.trim() || 'Dr. Nom inconnu';
+      }
+    }
+    
+    return 'Praticien inconnu';
+  };
+
+  // Fonction pour obtenir des informations complètes sur le patient
+  const getPatientInfo = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return { 
+        fullName: 'Patient non assigné', 
+        hasCIN: false,
+        cin: null,
+        tel: '',
+        email: ''
+      };
+    }
+    
+    // Chercher par CIN
+    const p = patientMap.get(cin);
+    if (p) {
+      return {
+        ...p,
+        fullName: `${p.nom ? p.nom.toUpperCase() : ''} ${p.prenom || ''}`.trim() || 'Nom inconnu',
+        hasCIN: true,
+        cin: p.cinPatient
+      };
+    }
+    
+    // Chercher par ID
+    const pById = patients.find(patient => 
+      patient.idPatient && patient.idPatient.toString() === cin
+    );
+    if (pById) {
+      return {
+        ...pById,
+        fullName: `${pById.nom ? pById.nom.toUpperCase() : ''} ${pById.prenom || ''}`.trim() || 'Nom inconnu',
+        hasCIN: !!pById.cinPatient,
+        cin: pById.cinPatient
+      };
+    }
+    
+    return { 
+      fullName: 'Patient inconnu', 
+      hasCIN: false,
+      cin: null,
+      tel: '',
+      email: ''
+    };
+  };
+
+  // Fonction pour obtenir des informations complètes sur le praticien
+  const getPraticienInfo = (cin) => {
+    if (!cin || cin.trim() === '') {
+      return { 
+        fullName: 'Praticien non assigné', 
+        hasCIN: false,
+        cin: null,
+        specialite: ''
+      };
+    }
+    
+    // Chercher par CIN
+    const pr = praticienMap.get(cin);
+    if (pr) {
+      return {
+        ...pr,
+        fullName: `Dr. ${pr.nom ? pr.nom.toUpperCase() : ''} ${pr.prenom || ''}`.trim() || 'Dr. Nom inconnu',
+        hasCIN: true,
+        cin: pr.cinPraticien,
+        specialite: pr.specialite || 'Non spécifiée'
+      };
+    }
+    
+    // Chercher par ID
+    const prById = praticiens.find(praticien => 
+      praticien.idPraticien && praticien.idPraticien.toString() === cin
+    );
+    if (prById) {
+      return {
+        ...prById,
+        fullName: `Dr. ${prById.nom ? prById.nom.toUpperCase() : ''} ${prById.prenom || ''}`.trim() || 'Dr. Nom inconnu',
+        hasCIN: !!prById.cinPraticien,
+        cin: prById.cinPraticien,
+        specialite: prById.specialite || 'Non spécifiée'
+      };
+    }
+    
+    return { 
+      fullName: 'Praticien inconnu', 
+      hasCIN: false,
+      cin: null,
+      specialite: ''
+    };
   };
 
   const getRdvDetails = (idRdv) => rdvMap.get(idRdv);
@@ -179,13 +334,30 @@ export default function Consultations() {
       return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
     }).length;
 
+    // Statistiques sur les patients
+    const consultationsAvecPatient = consultations.filter(c => {
+      const rdv = getRdvDetails(c.idRdv);
+      return rdv && rdv.cinPatient;
+    }).length;
+    
+    const patientsUniques = new Set(
+      consultations
+        .map(c => {
+          const rdv = getRdvDetails(c.idRdv);
+          return rdv ? rdv.cinPatient : null;
+        })
+        .filter(Boolean)
+    ).size;
+
     return {
       total,
       avecPrix,
       totalRevenue,
       moyennePrix,
       consultationsCeMois,
-      gratuit: total - avecPrix
+      gratuit: total - avecPrix,
+      consultationsAvecPatient,
+      patientsUniques
     };
   }, [consultations]);
 
@@ -296,10 +468,15 @@ export default function Consultations() {
   const handleExportExcel = () => {
     const dataToExport = consultations.map(consult => {
       const rdv = getRdvDetails(consult.idRdv);
+      const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: 'N/A', hasCIN: false };
+      const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: 'N/A', hasCIN: false };
+      
       return {
         'ID Consultation': consult.idConsult,
-        'Patient': rdv ? getPatientName(rdv.cinPatient) : 'N/A',
-        'Praticien': rdv ? getPraticienName(rdv.cinPraticien) : 'N/A',
+        'Patient': patientInfo.fullName,
+        'Patient CIN': patientInfo.hasCIN ? patientInfo.cin : 'Sans CIN',
+        'Praticien': praticienInfo.fullName,
+        'Praticien CIN': praticienInfo.hasCIN ? praticienInfo.cin : 'Sans CIN',
         'Date Consultation': formatDateTime(consult.dateConsult),
         'Prix (DA)': consult.prix || 'Gratuit',
         'Compte Rendu': consult.compteRendu || ''
@@ -429,6 +606,33 @@ export default function Consultations() {
       : 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white'
   }`;
 
+  // Composant pour afficher le badge CIN
+  const CinBadge = ({ hasCIN, cin, isPatient = true }) => {
+    if (!hasCIN) {
+      return (
+        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+          darkMode
+            ? 'bg-gray-700 text-gray-300'
+            : 'bg-gray-200 text-gray-700'
+        }`}>
+          <IdentificationIcon className="h-3 w-3 mr-1" />
+          Sans CIN
+        </span>
+      );
+    }
+    
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+        darkMode
+          ? 'bg-green-900/30 text-green-300'
+          : 'bg-green-100 text-green-700'
+      }`}>
+        <IdentificationIcon className="h-3 w-3 mr-1" />
+        CIN: {cin}
+      </span>
+    );
+  };
+
   return (
     <>
       {/* Notification Toast */}
@@ -543,14 +747,14 @@ export default function Consultations() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className={`text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      Consultations Gratuites
+                      Patients Uniques
                     </p>
-                    <p className="text-3xl font-bold text-orange-500">{stats.gratuit}</p>
+                    <p className="text-3xl font-bold text-orange-500">{stats.patientsUniques}</p>
                     <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
-                      {Math.round((stats.gratuit / stats.total) * 100)}% du total
+                      {stats.consultationsAvecPatient} consultations avec patient
                     </p>
                   </div>
-                  <DocumentTextIcon className="w-12 h-12 text-orange-500 bg-orange-100 dark:bg-orange-900/30 p-2 rounded-xl" />
+                  <UserGroupIcon className="w-12 h-12 text-orange-500 bg-orange-100 dark:bg-orange-900/30 p-2 rounded-xl" />
                 </div>
               </div>
             </div>
@@ -690,7 +894,7 @@ export default function Consultations() {
                   <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                   Actualiser
                 </button>
-                {/* <button 
+                <button 
                   onClick={handleExportExcel}
                   className={`px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-medium shadow-md ${
                     darkMode
@@ -700,12 +904,12 @@ export default function Consultations() {
                 >
                   <DocumentArrowDownIcon className="h-5 w-5" />
                   Export Excel
-                </button> */}
+                </button>
                 <button 
                   onClick={() => { setShowForm(!showForm); resetForm(); }}
                   className={`px-6 py-3 rounded-xl transition flex items-center gap-2 font-medium shadow-md ${
                     showForm 
-                      ? 'bg-gradient-to-r from-red-100 to-red-600 text-white' 
+                      ? 'bg-gradient-to-r from-red-500 to-red-600 text-white' 
                       : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white'
                   }`}
                 >
@@ -777,11 +981,15 @@ export default function Consultations() {
                   className={inputClasses}
                 >
                   <option value="">Sélectionner un Rdv</option>
-                  {rendezvous.map(rdv => (
-                    <option key={rdv.idRdv} value={rdv.idRdv}>
-                      Rdv #{rdv.idRdv} : {getPatientName(rdv.cinPatient)} / {getPraticienName(rdv.cinPraticien)}
-                    </option>
-                  ))}
+                  {rendezvous.map(rdv => {
+                    const patientInfo = getPatientInfo(rdv.cinPatient);
+                    const praticienInfo = getPraticienInfo(rdv.cinPraticien);
+                    return (
+                      <option key={rdv.idRdv} value={rdv.idRdv}>
+                        Rdv #{rdv.idRdv} : {patientInfo.fullName} ({patientInfo.hasCIN ? `CIN: ${patientInfo.cin}` : 'Sans CIN'}) / {praticienInfo.fullName}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -898,6 +1106,8 @@ export default function Consultations() {
                   </tr>
                 ) : paginated.map(c => {
                   const rdv = getRdvDetails(c.idRdv);
+                  const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: '—', hasCIN: false, cin: null };
+                  const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: '—', hasCIN: false, cin: null, specialite: '' };
                   const isExpanded = expandedConsultations.has(c.idConsult);
                   const isSelected = selectedConsultations.has(c.idConsult);
                   
@@ -918,13 +1128,35 @@ export default function Consultations() {
                         </td>
                         <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">#{c.idConsult}</td>
                         <td className="px-6 py-4">
-                          <div className="flex items-center gap-2 mb-1">
-                            <UserGroupIcon className="h-5 w-5 text-blue-400"/> 
-                            <span className="font-bold">{rdv ? getPatientName(rdv.cinPatient) : '—'}</span>
+                          {/* Informations Patient */}
+                          <div className="mb-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <UserIcon className="h-4 w-4 text-blue-400"/> 
+                              <span className="font-bold">{patientInfo.fullName}</span>
+                            </div>
+                            <div className="ml-6">
+                              <CinBadge hasCIN={patientInfo.hasCIN} cin={patientInfo.cin} isPatient={true} />
+                            </div>
                           </div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-                            <AcademicCapIcon className="h-4 w-4 text-green-400"/> 
-                            <span>{rdv ? getPraticienName(rdv.cinPraticien) : '—'}</span>
+                          
+                          {/* Informations Praticien */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-1">
+                              <AcademicCapIcon className="h-4 w-4 text-green-400"/> 
+                              <span className="font-medium">{praticienInfo.fullName}</span>
+                            </div>
+                            <div className="ml-6 flex items-center gap-2">
+                              <CinBadge hasCIN={praticienInfo.hasCIN} cin={praticienInfo.cin} isPatient={false} />
+                              {praticienInfo.specialite && (
+                                <span className={`text-xs px-2 py-1 rounded-full ${
+                                  darkMode 
+                                    ? 'bg-purple-900/30 text-purple-300' 
+                                    : 'bg-purple-100 text-purple-700'
+                                }`}>
+                                  {praticienInfo.specialite}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-gray-600 dark:text-gray-300 font-mono text-sm">
@@ -990,6 +1222,8 @@ export default function Consultations() {
               </div>
             ) : paginated.map(c => {
               const rdv = getRdvDetails(c.idRdv);
+              const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: '—', hasCIN: false, cin: null };
+              const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: '—', hasCIN: false, cin: null, specialite: '' };
               const isExpanded = expandedConsultations.has(c.idConsult);
               const isSelected = selectedConsultations.has(c.idConsult);
               
@@ -1016,22 +1250,49 @@ export default function Consultations() {
                     </span>
                   </div>
                   <div className="space-y-3 text-gray-700 dark:text-gray-300 mt-4">
+                    {/* Informations Patient */}
                     <div className={`p-3 rounded-lg ${
                       darkMode ? 'bg-blue-900/20' : 'bg-blue-50'
                     }`}>
                       <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        <UserGroupIcon className="h-4 w-4 text-blue-500" /> Patient :
+                        <UserIcon className="h-4 w-4 text-blue-500" /> Patient :
                       </p> 
-                      <span className="font-semibold text-base block ml-6">
-                        {rdv ? getPatientName(rdv.cinPatient) : '—'}
-                      </span>
-                      <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mt-2 mb-1">
+                      <div className="ml-4">
+                        <span className="font-semibold text-base block">
+                          {patientInfo.fullName}
+                        </span>
+                        <div className="mt-1">
+                          <CinBadge hasCIN={patientInfo.hasCIN} cin={patientInfo.cin} isPatient={true} />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Informations Praticien */}
+                    <div className={`p-3 rounded-lg ${
+                      darkMode ? 'bg-green-900/20' : 'bg-green-50'
+                    }`}>
+                      <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
                         <AcademicCapIcon className="h-4 w-4 text-green-500" /> Praticien :
                       </p> 
-                      <span className="font-semibold text-base block ml-6">
-                        {rdv ? getPraticienName(rdv.cinPraticien) : '—'}
-                      </span>
+                      <div className="ml-4">
+                        <span className="font-semibold text-base block">
+                          {praticienInfo.fullName}
+                        </span>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          <CinBadge hasCIN={praticienInfo.hasCIN} cin={praticienInfo.cin} isPatient={false} />
+                          {praticienInfo.specialite && (
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              darkMode 
+                                ? 'bg-purple-900/30 text-purple-300' 
+                                : 'bg-purple-100 text-purple-700'
+                            }`}>
+                              {praticienInfo.specialite}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
+
                     <p className="flex items-center gap-2">
                       <CalendarIcon className="h-5 w-5 text-gray-500" /> 
                       <strong>Date :</strong> {formatDateTime(c.dateConsult)}
@@ -1111,6 +1372,7 @@ export default function Consultations() {
           }`}>
             <p>
               📊 {consultations.length} consultation(s) au total • 
+              {stats.patientsUniques} patient(s) unique(s) • 
               Dernière mise à jour : {new Date().toLocaleString('fr-FR')}
             </p>
           </div>

@@ -19,43 +19,46 @@ const AdminDashboard = () => {
   
   // Détermination du mode sombre pour un style adaptatif
   const [darkMode] = useState(
-    typeof window !== 'undefined' ? localStorage.getItem('darkMode') === 'true' : false
+    // Pour la démonstration, on suppose que l'état darkMode est géré ailleurs, 
+    // mais la logique suivante est la plus sûre si vous n'avez pas de gestion centralisée.
+    typeof window !== 'undefined' ? document.documentElement.classList.contains('dark') : false
   );
   
   const API_BASE_URL = 'https://heldosseva.duckdns.org';
+  const displayMessage = (msg, duration = 3000) => {
+    setMessage(msg);
+    setTimeout(() => setMessage(''), duration);
+  };
 
-  // --- Chargement des données (avec simulation pour la démonstration) ---
+  // --- Chargement des données ---
   useEffect(() => {
-    // Fonction pour charger les admins (avec fallback)
     const fetchAdminData = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/admins`);
         setAdmins(res.data);
       } catch (e) {
-        // Données simulées pour dépasser la limite de 5
-        setAdmins(Array.from({ length: 8 }, (_, i) => ({ 
+        // En cas d'erreur de l'API réelle, utilisez un jeu de données minimal
+        setAdmins(Array.from({ length: 3 }, (_, i) => ({ 
           id: i + 1, 
-          email: i === 0 ? 'super.admin@example.com' : `admin${i + 1}@example.com`
+          email: i === 0 ? 'super.admin@api-fail.com' : `admin${i + 1}@api-fail.com`
         })));
-        console.warn("Erreur de chargement des admins, données simulées utilisées.", e);
+        displayMessage("Avertissement: Impossible de charger les admins depuis l'API. Affichage des données de secours.", 5000);
       } finally {
         setLoadingAdmins(false);
       }
     };
 
-    // Fonction pour charger les utilisateurs (avec fallback)
     const fetchUserData = async () => {
       try {
         const res = await axios.get(`${API_BASE_URL}/users`);
         setUsers(res.data);
       } catch (e) {
-        // Données simulées pour dépasser la limite de 5
-        setUsers(Array.from({ length: 10 }, (_, i) => ({ 
+        setUsers(Array.from({ length: 4 }, (_, i) => ({ 
           id: i + 101, 
-          email: `user${i + 1}@app.com`, 
-          isApproved: i % 3 !== 0 
+          email: `user${i + 1}@api-fail.com`, 
+          isApproved: i % 2 === 0 
         })));
-        console.warn("Erreur de chargement des utilisateurs, données simulées utilisées.", e);
+        displayMessage("Avertissement: Impossible de charger les utilisateurs depuis l'API. Affichage des données de secours.", 5000);
       } finally {
         setLoadingUsers(false);
       }
@@ -65,53 +68,56 @@ const AdminDashboard = () => {
     fetchUserData();
   }, []);
 
-  // --- Logique de suppression ---
+  // --- Logique de suppression d'Admin (CORRIGÉE) ---
   const handleDeleteAdmin = async (id, idx) => {
     if (idx === 0) {
-      setMessage("Action refusée : Le premier administrateur est non supprimable.");
-      setTimeout(() => setMessage(''), 3000);
+      displayMessage("Action refusée : Le premier administrateur est non supprimable.", 3000);
       return;
     }
     if (!window.confirm("CONFIRMATION : Voulez-vous vraiment supprimer cet administrateur ?")) return;
 
     try {
-      // await axios.delete(`${API_BASE_URL}/admins/${id}`); // Décommenter pour l'API réelle
+      // 1. DÉCOMMENTER L'APPEL À L'API
+      await axios.delete(`${API_BASE_URL}/admins/${id}`); 
+      
+      // 2. MISE À JOUR DE L'ÉTAT LOCAL (UNIQUEMENT APRÈS SUCCÈS API)
       setAdmins(admins.filter(a => a.id !== id));
-      setMessage("Admin supprimé avec succès.");
-      setTimeout(() => setMessage(''), 3000);
-    } catch {
-      setMessage("Erreur lors de la suppression de l'admin.");
-      setTimeout(() => setMessage(''), 3000);
+      displayMessage("Admin supprimé avec succès.", 3000);
+    } catch (error) {
+      // 3. GESTION DES ERREURS API PLUS PRÉCISE
+      const errorMsg = error.response?.data?.message || "Erreur inconnue lors de la suppression de l'admin.";
+      displayMessage(`Erreur API: ${errorMsg}`, 5000);
     }
   };
 
+  // --- Logique de suppression d'Utilisateur (CORRIGÉE) ---
   const handleDeleteUser = async (id) => {
     if (!window.confirm("CONFIRMATION : Voulez-vous vraiment supprimer cet utilisateur ?")) return;
 
     try {
-      // await axios.delete(`${API_BASE_URL}/users/${id}`); // Décommenter pour l'API réelle
+      // 1. DÉCOMMENTER L'APPEL À L'API
+      await axios.delete(`${API_BASE_URL}/users/${id}`); 
+      
+      // 2. MISE À JOUR DE L'ÉTAT LOCAL (UNIQUEMENT APRÈS SUCCÈS API)
       setUsers(users.filter(u => u.id !== id));
-      setMessage("Utilisateur supprimé avec succès.");
-      setTimeout(() => setMessage(''), 3000);
-    } catch {
-      setMessage("Erreur lors de la suppression de l'utilisateur.");
-      setTimeout(() => setMessage(''), 3000);
+      displayMessage("Utilisateur supprimé avec succès.", 3000);
+    } catch (error) {
+      // 3. GESTION DES ERREURS API PLUS PRÉCISE
+      const errorMsg = error.response?.data?.message || "Erreur inconnue lors de la suppression de l'utilisateur.";
+      displayMessage(`Erreur API: ${errorMsg}`, 5000);
     }
   };
 
-  // --- Variables et Fonctions de Rendu ---
+  // --- Variables et Fonctions de Rendu (inchangées) ---
   
-  // Limiter les données affichées si "Voir Plus" n'est pas actif
   const MAX_ITEMS = 5;
   const displayAdmins = showAllAdmins ? admins : admins.slice(0, MAX_ITEMS);
   const displayUsers = showAllUsers ? users : users.slice(0, MAX_ITEMS);
 
-  // Style de carte adapté au mode sombre/clair
   const cardClasses = `bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl transition-all duration-300 ${
     darkMode ? 'border border-gray-700' : 'border border-gray-100 hover:shadow-2xl'
   }`;
   
-  // Style de ligne de tableau zébrée
   const rowClasses = (idx) => 
     `transition-colors duration-200 ${
       idx % 2 === 0 
@@ -126,9 +132,8 @@ const AdminDashboard = () => {
     </div>
   );
   
-  // Composant pour le bouton "Voir Plus/Moins"
   const ToggleButton = ({ isShowingAll, totalItems, toggleFunction }) => {
-    if (totalItems <= MAX_ITEMS) return null; // Ne pas afficher si la liste est courte
+    if (totalItems <= MAX_ITEMS) return null;
     
     return (
       <button
@@ -150,7 +155,7 @@ const AdminDashboard = () => {
     );
   };
 
-  // --- Rendu final ---
+  // --- Rendu final (inchangé) ---
   return (
     <div className={`min-h-screen ${darkMode ? 'bg-gray-900' : 'bg-gray-50'} py-10`}>
       <div className="max-w-6xl mx-auto">
@@ -162,7 +167,7 @@ const AdminDashboard = () => {
           
           {/* Message de notification */}
           {message && (
-            <div className="mb-6 px-4 py-3 bg-green-100 dark:bg-green-800/50 text-green-700 dark:text-green-300 rounded-lg text-center font-semibold border border-green-200 dark:border-green-700 shadow-md transition-opacity duration-500 animate-fadeIn">
+            <div className={`mb-6 px-4 py-3 ${message.includes('Erreur') || message.includes('Action refusée') ? 'bg-red-100 dark:bg-red-800/50 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-700' : 'bg-green-100 dark:bg-green-800/50 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700'} rounded-lg text-center font-semibold shadow-md transition-opacity duration-500 animate-fadeIn`}>
               {message}
             </div>
           )}

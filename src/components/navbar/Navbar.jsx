@@ -12,23 +12,9 @@ export default function MedicalSidebar({ onLogout }) {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('theme');
-      return saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    }
-    return false;
-  });
+ 
 
-  useEffect(() => {
-    if (darkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
-    }
-  }, [darkMode]);
+ 
 
   const handleLogout = () => {
     onLogout?.();
@@ -88,7 +74,7 @@ export default function MedicalSidebar({ onLogout }) {
       {/* Sidebar Desktop + Mobile */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 flex flex-col 
-          bg-white dark:bg-gray-800 text-gray-800 dark:text-white 
+          bg-white dark:bg-gray-800 text-gray-100 dark:text-white 
           shadow-2xl shadow-gray-400/30 dark:shadow-black/70
           transition-all duration-300 overflow-hidden
           ${sidebarCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH} 
@@ -108,8 +94,8 @@ export default function MedicalSidebar({ onLogout }) {
                 <Activity size={24} className={`text-${ACCENT_COLOR}-500`} />
               </div>
               <div>
-                <h1 className="text-xl font-semibold tracking-wide text-gray-900 dark:text-white">HealdoCare</h1>
-                <p className="text-xs text-gray-500 dark:text-gray-400">P. Management</p>
+                <h1 className="text-xl font-semibold tracking-wide text-gray-900 dark:text-white">Clinique Tsaradia</h1>
+                <p className="text-xs text-gray-500 dark:text-gray-400">G.Patient</p>
               </div>
             </div>
 
@@ -152,7 +138,7 @@ export default function MedicalSidebar({ onLogout }) {
           <div className={`p-4 border-t border-gray-100 dark:border-gray-700 space-y-2`}>
             
             {/* Bascule Mode Sombre (Décommenté et rendu fonctionnel si vous le souhaitez) */}
-            <button
+            {/* <button
               onClick={() => setDarkMode(!darkMode)}
               className={`w-full flex items-center px-3 py-3 rounded-lg transition-all text-gray-600 dark:text-gray-300 
                 hover:bg-gray-100 dark:hover:bg-gray-700 gap-3`}
@@ -164,7 +150,7 @@ export default function MedicalSidebar({ onLogout }) {
               <span className="text-sm">
                 {darkMode ? 'Mode Clair' : 'Mode Sombre'}
               </span>
-            </button>
+            </button> */}
 
             {/* Déconnexion */}
             <button
