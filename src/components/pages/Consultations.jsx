@@ -26,11 +26,13 @@ import {
   DocumentArrowDownIcon,
   ClipboardDocumentListIcon,
   BanknotesIcon,
-  IdentificationIcon
+  IdentificationIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from "@heroicons/react/24/outline";
 
 // Constantes
-const PAGE_SIZE = 8;
+const PAGE_SIZE = 4; // Réduit à 4 pour mieux tester la pagination
 const API_BASE_URL = 'https://heldosseva.duckdns.org';
 
 export default function Consultations() {
@@ -107,19 +109,16 @@ export default function Consultations() {
     [rendezvous]
   );
 
-  // MODIFICATION: Fonction améliorée pour gérer les patients sans CIN
   const getPatientName = (cin) => {
     if (!cin || cin.trim() === '') {
       return 'Patient non assigné';
     }
     
-    // Chercher par CIN dans la map
     const p = patientMap.get(cin);
     if (p) {
       return `${p.nom ? p.nom.toUpperCase() : ''} ${p.prenom || ''}`.trim() || 'Nom inconnu';
     }
     
-    // Si CIN non trouvé, chercher par ID dans la liste complète des patients
     const pById = patients.find(patient => 
       patient.idPatient && patient.idPatient.toString() === cin
     );
@@ -127,36 +126,19 @@ export default function Consultations() {
       return `${pById.nom ? pById.nom.toUpperCase() : ''} ${pById.prenom || ''}`.trim() || 'Nom inconnu';
     }
     
-    // Si on arrive ici, chercher si le CIN correspond à un ID patient
-    for (const patient of patients) {
-      if (patient.idPatient && patient.idPatient.toString() === cin) {
-        return `${patient.nom ? patient.nom.toUpperCase() : ''} ${patient.prenom || ''}`.trim() || 'Nom inconnu';
-      }
-    }
-    
-    // Dernier recours : chercher par correspondance partielle du nom
-    for (const patient of patients) {
-      if (patient.cinPatient && patient.cinPatient.includes(cin)) {
-        return `${patient.nom ? patient.nom.toUpperCase() : ''} ${patient.prenom || ''}`.trim() || 'Nom inconnu';
-      }
-    }
-    
     return 'Patient inconnu';
   };
 
-  // MODIFICATION: Fonction améliorée pour gérer les praticiens sans CIN
   const getPraticienName = (cin) => {
     if (!cin || cin.trim() === '') {
       return 'Praticien non assigné';
     }
     
-    // Chercher par CIN dans la map
     const pr = praticienMap.get(cin);
     if (pr) {
       return `Dr. ${pr.nom ? pr.nom.toUpperCase() : ''} ${pr.prenom || ''}`.trim() || 'Dr. Nom inconnu';
     }
     
-    // Si CIN non trouvé, chercher par ID dans la liste complète des praticiens
     const prById = praticiens.find(praticien => 
       praticien.idPraticien && praticien.idPraticien.toString() === cin
     );
@@ -164,24 +146,9 @@ export default function Consultations() {
       return `Dr. ${prById.nom ? prById.nom.toUpperCase() : ''} ${prById.prenom || ''}`.trim() || 'Dr. Nom inconnu';
     }
     
-    // Si on arrive ici, chercher si le CIN correspond à un ID praticien
-    for (const praticien of praticiens) {
-      if (praticien.idPraticien && praticien.idPraticien.toString() === cin) {
-        return `Dr. ${praticien.nom ? praticien.nom.toUpperCase() : ''} ${praticien.prenom || ''}`.trim() || 'Dr. Nom inconnu';
-      }
-    }
-    
-    // Dernier recours : chercher par correspondance partielle du nom
-    for (const praticien of praticiens) {
-      if (praticien.cinPraticien && praticien.cinPraticien.includes(cin)) {
-        return `Dr. ${praticien.nom ? praticien.nom.toUpperCase() : ''} ${praticien.prenom || ''}`.trim() || 'Dr. Nom inconnu';
-      }
-    }
-    
     return 'Praticien inconnu';
   };
 
-  // Fonction pour obtenir des informations complètes sur le patient
   const getPatientInfo = (cin) => {
     if (!cin || cin.trim() === '') {
       return { 
@@ -193,7 +160,6 @@ export default function Consultations() {
       };
     }
     
-    // Chercher par CIN
     const p = patientMap.get(cin);
     if (p) {
       return {
@@ -204,7 +170,6 @@ export default function Consultations() {
       };
     }
     
-    // Chercher par ID
     const pById = patients.find(patient => 
       patient.idPatient && patient.idPatient.toString() === cin
     );
@@ -226,7 +191,6 @@ export default function Consultations() {
     };
   };
 
-  // Fonction pour obtenir des informations complètes sur le praticien
   const getPraticienInfo = (cin) => {
     if (!cin || cin.trim() === '') {
       return { 
@@ -237,7 +201,6 @@ export default function Consultations() {
       };
     }
     
-    // Chercher par CIN
     const pr = praticienMap.get(cin);
     if (pr) {
       return {
@@ -249,7 +212,6 @@ export default function Consultations() {
       };
     }
     
-    // Chercher par ID
     const prById = praticiens.find(praticien => 
       praticien.idPraticien && praticien.idPraticien.toString() === cin
     );
@@ -273,7 +235,6 @@ export default function Consultations() {
 
   const getRdvDetails = (idRdv) => rdvMap.get(idRdv);
 
-  // Formatage de la date pour l'affichage
   const formatDateTime = (dateString) => {
     if (!dateString) return '—';
     try {
@@ -289,7 +250,6 @@ export default function Consultations() {
     }
   };
 
-  // Toggle l'expansion d'une consultation
   const toggleExpansion = (id) => {
     const newExpanded = new Set(expandedConsultations);
     if (newExpanded.has(id)) {
@@ -300,7 +260,6 @@ export default function Consultations() {
     setExpandedConsultations(newExpanded);
   };
 
-  // Sélection multiple
   const toggleSelectConsultation = (id) => {
     const newSelected = new Set(selectedConsultations);
     if (newSelected.has(id)) {
@@ -319,14 +278,12 @@ export default function Consultations() {
     }
   };
 
-  // Calcul des statistiques
   const stats = useMemo(() => {
     const total = consultations.length;
     const avecPrix = consultations.filter(c => c.prix).length;
     const totalRevenue = consultations.reduce((sum, c) => sum + (parseFloat(c.prix) || 0), 0);
     const moyennePrix = avecPrix > 0 ? totalRevenue / avecPrix : 0;
     
-    // Consultations du mois
     const currentMonth = new Date().getMonth();
     const currentYear = new Date().getFullYear();
     const consultationsCeMois = consultations.filter(c => {
@@ -334,7 +291,6 @@ export default function Consultations() {
       return date.getMonth() === currentMonth && date.getFullYear() === currentYear;
     }).length;
 
-    // Statistiques sur les patients
     const consultationsAvecPatient = consultations.filter(c => {
       const rdv = getRdvDetails(c.idRdv);
       return rdv && rdv.cinPatient;
@@ -410,7 +366,6 @@ export default function Consultations() {
 
       const res = await axios.get(url);
       
-      // Filtrage supplémentaire par prix côté client
       let filteredData = res.data || [];
       if (search.prixMin) {
         filteredData = filteredData.filter(c => parseFloat(c.prix || 0) >= parseFloat(search.prixMin));
@@ -440,51 +395,6 @@ export default function Consultations() {
       prixMax: ''
     });
     fetchAll();
-  };
-
-  // --- GESTION PDF ---
-  const handlePrintPdf = () => {
-    if (!pdfDate) {
-      showNotification('Veuillez sélectionner une date pour l\'impression PDF.', 'error');
-      return;
-    }
-    
-    const dateToFilter = new Date(pdfDate).toISOString().split('T')[0];
-    const consultationsForPdf = consultations.filter(c => 
-        c.dateConsult.startsWith(dateToFilter)
-    );
-
-    if (consultationsForPdf.length === 0) {
-        showNotification(`Aucune consultation trouvée pour la date ${pdfDate}.`, 'error');
-        return;
-    }
-    
-    const count = consultationsForPdf.length;
-    showNotification(`Génération d'un rapport PDF pour ${count} consultation(s) du ${pdfDate}...`, 'success');
-    console.log(`Données pour le PDF du ${pdfDate}:`, consultationsForPdf);
-  };
-
-  // Export Excel
-  const handleExportExcel = () => {
-    const dataToExport = consultations.map(consult => {
-      const rdv = getRdvDetails(consult.idRdv);
-      const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: 'N/A', hasCIN: false };
-      const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: 'N/A', hasCIN: false };
-      
-      return {
-        'ID Consultation': consult.idConsult,
-        'Patient': patientInfo.fullName,
-        'Patient CIN': patientInfo.hasCIN ? patientInfo.cin : 'Sans CIN',
-        'Praticien': praticienInfo.fullName,
-        'Praticien CIN': praticienInfo.hasCIN ? praticienInfo.cin : 'Sans CIN',
-        'Date Consultation': formatDateTime(consult.dateConsult),
-        'Prix (DA)': consult.prix || 'Gratuit',
-        'Compte Rendu': consult.compteRendu || ''
-      };
-    });
-
-    showNotification(`Export Excel préparé pour ${consultations.length} consultations`, 'success');
-    console.log('Données pour Excel:', dataToExport);
   };
 
   // --- CRUD (Create, Read, Update, Delete) ---
@@ -760,31 +670,6 @@ export default function Consultations() {
             </div>
           )}
 
-          {/* Section Impression PDF */}
-          {/* <div className={`${cardClasses} p-6 mb-6 border-l-4 ${
-            darkMode ? 'border-red-500' : 'border-red-400'
-          }`}>
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <h2 className="text-xl font-semibold text-red-600 dark:text-red-400 flex items-center gap-2">
-                <PrinterIcon className="h-6 w-6" /> Rapport PDF par Date
-              </h2>
-              <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                <input
-                  type="date"
-                  value={pdfDate}
-                  onChange={(e) => setPdfDate(e.target.value)}
-                  className={inputClasses}
-                />
-                <button 
-                  onClick={handlePrintPdf} 
-                  className="px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl hover:from-red-600 hover:to-red-700 transition flex items-center justify-center gap-2 font-medium shadow-md"
-                >
-                  <PrinterIcon className="h-5 w-5" /> Générer PDF
-                </button>
-              </div>
-            </div>
-          </div> */}
-
           {/* Barre de recherche et actions */}
           <div className={`${cardClasses} p-6 mb-6`}>
             <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
@@ -893,17 +778,6 @@ export default function Consultations() {
                 >
                   <ArrowPathIcon className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
                   Actualiser
-                </button>
-                <button 
-                  onClick={handleExportExcel}
-                  className={`px-4 py-3 rounded-xl transition flex items-center justify-center gap-2 font-medium shadow-md ${
-                    darkMode
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
-                      : 'bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white'
-                  }`}
-                >
-                  <DocumentArrowDownIcon className="h-5 w-5" />
-                  Export Excel
                 </button>
                 <button 
                   onClick={() => { setShowForm(!showForm); resetForm(); }}
@@ -1068,150 +942,222 @@ export default function Consultations() {
             </form>
           </div>
 
-          {/* Tableau Desktop */}
+          {/* Tableau Desktop avec pagination */}
           <div className={`hidden lg:block ${cardClasses} overflow-hidden`}>
-            <table className="w-full">
-              <thead className={tableHeaderClasses}>
-                <tr>
-                  <th className="px-6 py-4 text-left font-semibold w-12">
-                    <input
-                      type="checkbox"
-                      checked={selectedConsultations.size === paginated.length && paginated.length > 0}
-                      onChange={selectAllConsultations}
-                      className="rounded border-gray-300"
-                    />
-                  </th>
-                  <th className="px-6 py-4 text-left font-semibold">ID</th>
-                  <th className="px-6 py-4 text-left font-semibold">Patient / Praticien</th>
-                  <th className="px-6 py-4 text-left font-semibold">Date & Heure</th>
-                  <th className="px-6 py-4 text-left font-semibold">Prix</th>
-                  <th className="px-6 py-4 text-left font-semibold">Compte rendu</th>
-                  <th className="px-6 py-4 text-center font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody className={`divide-y ${
-                darkMode ? 'divide-gray-700' : 'divide-gray-100'
-              }`}>
-                {loading ? (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className={tableHeaderClasses}>
                   <tr>
-                    <td colSpan={7} className="text-center py-16 text-blue-500 dark:text-blue-400 text-xl font-medium animate-pulse">
-                      <DocumentTextIcon className="h-6 w-6 inline mr-2" /> Chargement des dossiers médicaux...
-                    </td>
+                    <th className="px-6 py-4 text-left font-semibold w-12">
+                      <input
+                        type="checkbox"
+                        checked={selectedConsultations.size === paginated.length && paginated.length > 0}
+                        onChange={selectAllConsultations}
+                        className="rounded border-gray-300"
+                      />
+                    </th>
+                    <th className="px-6 py-4 text-left font-semibold">ID</th>
+                    <th className="px-6 py-4 text-left font-semibold">Patient / Praticien</th>
+                    <th className="px6 py-4 text-left font-semibold">Date & Heure</th>
+                    <th className="px-6 py-4 text-left font-semibold">Prix</th>
+                    <th className="px-6 py-4 text-left font-semibold">Compte rendu</th>
+                    <th className="px-6 py-4 text-center font-semibold">Actions</th>
                   </tr>
-                ) : paginated.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="text-center py-16 text-gray-500 dark:text-gray-400 text-lg">
-                      Aucune consultation trouvée.
-                    </td>
-                  </tr>
-                ) : paginated.map(c => {
-                  const rdv = getRdvDetails(c.idRdv);
-                  const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: '—', hasCIN: false, cin: null };
-                  const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: '—', hasCIN: false, cin: null, specialite: '' };
-                  const isExpanded = expandedConsultations.has(c.idConsult);
-                  const isSelected = selectedConsultations.has(c.idConsult);
-                  
-                  return (
-                    <React.Fragment key={c.idConsult}>
-                      <tr className={`border-t transition ${
-                        darkMode 
-                          ? `border-gray-700 hover:bg-blue-900/20 ${isSelected ? 'bg-blue-900/30' : ''}` 
-                          : `border-gray-100 hover:bg-blue-50/50 ${isSelected ? 'bg-blue-100' : ''}`
-                      }`}>
-                        <td className="px-6 py-4">
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => toggleSelectConsultation(c.idConsult)}
-                            className="rounded border-gray-300"
-                          />
-                        </td>
-                        <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">#{c.idConsult}</td>
-                        <td className="px-6 py-4">
-                          {/* Informations Patient */}
-                          <div className="mb-3">
-                            <div className="flex items-center gap-2 mb-1">
-                              <UserIcon className="h-4 w-4 text-blue-400"/> 
-                              <span className="font-bold">{patientInfo.fullName}</span>
+                </thead>
+                <tbody className={`divide-y ${
+                  darkMode ? 'divide-gray-700' : 'divide-gray-100'
+                }`}>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-16 text-blue-500 dark:text-blue-400 text-xl font-medium animate-pulse">
+                        <DocumentTextIcon className="h-6 w-6 inline mr-2" /> Chargement des dossiers médicaux...
+                      </td>
+                    </tr>
+                  ) : paginated.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-16 text-gray-500 dark:text-gray-400 text-lg">
+                        Aucune consultation trouvée.
+                      </td>
+                    </tr>
+                  ) : paginated.map(c => {
+                    const rdv = getRdvDetails(c.idRdv);
+                    const patientInfo = rdv ? getPatientInfo(rdv.cinPatient) : { fullName: '—', hasCIN: false, cin: null };
+                    const praticienInfo = rdv ? getPraticienInfo(rdv.cinPraticien) : { fullName: '—', hasCIN: false, cin: null, specialite: '' };
+                    const isExpanded = expandedConsultations.has(c.idConsult);
+                    const isSelected = selectedConsultations.has(c.idConsult);
+                    
+                    return (
+                      <React.Fragment key={c.idConsult}>
+                        <tr className={`border-t transition ${
+                          darkMode 
+                            ? `border-gray-700 hover:bg-blue-900/20 ${isSelected ? 'bg-blue-900/30' : ''}` 
+                            : `border-gray-100 hover:bg-blue-50/50 ${isSelected ? 'bg-blue-100' : ''}`
+                        }`}>
+                          <td className="px-6 py-4">
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleSelectConsultation(c.idConsult)}
+                              className="rounded border-gray-300"
+                            />
+                          </td>
+                          <td className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400">#{c.idConsult}</td>
+                          <td className="px-6 py-4">
+                            {/* Informations Patient */}
+                            <div className="mb-3">
+                              <div className="flex items-center gap-2 mb-1">
+                                <UserIcon className="h-4 w-4 text-blue-400"/> 
+                                <span className="font-bold">{patientInfo.fullName}</span>
+                              </div>
+                              <div className="ml-6">
+                                <CinBadge hasCIN={patientInfo.hasCIN} cin={patientInfo.cin} isPatient={true} />
+                              </div>
                             </div>
-                            <div className="ml-6">
-                              <CinBadge hasCIN={patientInfo.hasCIN} cin={patientInfo.cin} isPatient={true} />
+                            
+                            {/* Informations Praticien */}
+                            <div>
+                              <div className="flex items-center gap-2 mb-1">
+                                <AcademicCapIcon className="h-4 w-4 text-green-400"/> 
+                                <span className="font-medium">{praticienInfo.fullName}</span>
+                              </div>
+                              <div className="ml-6 flex items-center gap-2">
+                                <CinBadge hasCIN={praticienInfo.hasCIN} cin={praticienInfo.cin} isPatient={false} />
+                                {praticienInfo.specialite && (
+                                  <span className={`text-xs px-2 py-1 rounded-full ${
+                                    darkMode 
+                                      ? 'bg-purple-900/30 text-purple-300' 
+                                      : 'bg-purple-100 text-purple-700'
+                                  }`}>
+                                    {praticienInfo.specialite}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                          
-                          {/* Informations Praticien */}
-                          <div>
-                            <div className="flex items-center gap-2 mb-1">
-                              <AcademicCapIcon className="h-4 w-4 text-green-400"/> 
-                              <span className="font-medium">{praticienInfo.fullName}</span>
+                          </td>
+                          <td className="px-6 py-4 text-gray-600 dark:text-gray-300 font-mono text-sm">
+                            {formatDateTime(c.dateConsult)}
+                          </td>
+                          <td className="px-6 py-4 font-extrabold text-lg">
+                            {c.prix ? (
+                              <span className="text-green-600 dark:text-green-400">
+                                {Number(c.prix).toLocaleString()} Ar
+                              </span>
+                            ) : (
+                              <span className="text-gray-500 dark:text-gray-400">Gratuit</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 max-w-xs">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => toggleExpansion(c.idConsult)}
+                                className="text-blue-500 hover:text-blue-700 transition"
+                              >
+                                {isExpanded ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                              </button>
+                              <span className={`text-sm ${
+                                darkMode ? 'text-gray-300' : 'text-gray-700'
+                              } ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>
+                                {c.compteRendu || '—'}
+                              </span>
                             </div>
-                            <div className="ml-6 flex items-center gap-2">
-                              <CinBadge hasCIN={praticienInfo.hasCIN} cin={praticienInfo.cin} isPatient={false} />
-                              {praticienInfo.specialite && (
-                                <span className={`text-xs px-2 py-1 rounded-full ${
-                                  darkMode 
-                                    ? 'bg-purple-900/30 text-purple-300' 
-                                    : 'bg-purple-100 text-purple-700'
-                                }`}>
-                                  {praticienInfo.specialite}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300 font-mono text-sm">
-                          {formatDateTime(c.dateConsult)}
-                        </td>
-                        <td className="px-6 py-4 font-extrabold text-lg">
-                          {c.prix ? (
-                            <span className="text-green-600 dark:text-green-400">
-                              {Number(c.prix).toLocaleString()} Ar
-                            </span>
-                          ) : (
-                            <span className="text-gray-500 dark:text-gray-400">Gratuit</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 max-w-xs">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => toggleExpansion(c.idConsult)}
-                              className="text-blue-500 hover:text-blue-700 transition"
+                          </td>
+                          <td className="px-6 py-4 text-center space-x-4">
+                            <button 
+                              onClick={() => handleEdit(c)} 
+                              title="Modifier" 
+                              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"
                             >
-                              {isExpanded ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
+                              <PencilSquareIcon className="h-5 w-5" />
                             </button>
-                            <span className={`text-sm ${
-                              darkMode ? 'text-gray-300' : 'text-gray-700'
-                            } ${isExpanded ? 'whitespace-normal' : 'truncate'}`}>
-                              {c.compteRendu || '—'}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center space-x-4">
-                          <button 
-                            onClick={() => handleEdit(c)} 
-                            title="Modifier" 
-                            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition p-2 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"
-                          >
-                            <PencilSquareIcon className="h-5 w-5" />
-                          </button>
-                          <button 
-                            onClick={() => handleDelete(c.idConsult)} 
-                            title="Supprimer" 
-                            className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                            <button 
+                              onClick={() => handleDelete(c.idConsult)} 
+                              title="Supprimer" 
+                              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition p-2 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            
+            {/* Pagination pour le tableau desktop */}
+            {totalPages > 1 && (
+              <div className={`flex justify-between items-center px-6 py-4 border-t ${
+                darkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
+              }`}>
+                <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Affichage de {(page - 1) * PAGE_SIZE + 1} à {Math.min(page * PAGE_SIZE, consultations.length)} 
+                  sur {consultations.length} consultations
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setPage(p => Math.max(1, p - 1))}
+                    disabled={page === 1}
+                    className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                      page === 1 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : 'hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                    } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                  >
+                    <ChevronLeftIcon className="h-4 w-4" />
+                    Précédent
+                  </button>
+                  <div className="flex gap-1">
+                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) {
+                        pageNum = i + 1;
+                      } else if (page <= 3) {
+                        pageNum = i + 1;
+                      } else if (page >= totalPages - 2) {
+                        pageNum = totalPages - 4 + i;
+                      } else {
+                        pageNum = page - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setPage(pageNum)}
+                          className={`w-10 h-10 rounded-lg transition ${
+                            page === pageNum
+                              ? darkMode 
+                                ? 'bg-blue-600 text-white' 
+                                : 'bg-blue-500 text-white'
+                              : darkMode 
+                                ? 'hover:bg-gray-700 text-gray-300' 
+                                : 'hover:bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                    disabled={page === totalPages}
+                    className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                      page === totalPages 
+                        ? 'opacity-50 cursor-not-allowed' 
+                        : 'hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                    } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                  >
+                    Suivant
+                    <ChevronRightIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Cartes Mobile */}
-          <div className="lg:hidden grid gap-6">
+          {/* Vue Mobile améliorée sous forme de tableau */}
+          <div className="lg:hidden space-y-4">
             {loading ? (
               <div className="text-center py-10 text-blue-500 dark:text-blue-400 text-xl font-medium animate-pulse">
                 Chargement...
@@ -1228,56 +1174,76 @@ export default function Consultations() {
               const isSelected = selectedConsultations.has(c.idConsult);
               
               return (
-                <div key={c.idConsult} className={`${cardClasses} p-6 border-l-4 ${
-                  isSelected ? 'border-blue-500' : 'border-blue-500'
-                }`}>
-                  <div className="flex justify-between items-center mb-4 border-b pb-3 border-gray-100 dark:border-gray-700">
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={isSelected}
-                        onChange={() => toggleSelectConsultation(c.idConsult)}
-                        className="rounded border-gray-300"
-                      />
-                      <h3 className="text-2xl font-extrabold text-blue-600 dark:text-blue-400">Dossier #{c.idConsult}</h3>
+                <div key={c.idConsult} className={`${cardClasses} overflow-hidden`}>
+                  {/* En-tête mobile */}
+                  <div className={`p-4 border-b ${
+                    darkMode ? 'border-gray-700' : 'border-gray-100'
+                  }`}>
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleSelectConsultation(c.idConsult)}
+                          className="rounded border-gray-300"
+                        />
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xl font-bold text-blue-600 dark:text-blue-400">#{c.idConsult}</span>
+                            <span className={`text-xs px-2 py-1 rounded-full ${
+                              darkMode 
+                                ? 'bg-gray-700 text-gray-300' 
+                                : 'bg-gray-200 text-gray-700'
+                            }`}>
+                              {c.prix ? 'Payante' : 'Gratuite'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                            {formatDateTime(c.dateConsult)}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => handleEdit(c)} 
+                          className="p-2 text-blue-500 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg"
+                        >
+                          <PencilSquareIcon className="h-5 w-5" />
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(c.idConsult)} 
+                          className="p-2 text-red-500 hover:bg-red-100 dark:hover:bg-red-900/30 rounded-lg"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
                     </div>
-                    <span className={`px-4 py-1 rounded-full text-sm font-bold shadow-sm ${
-                      c.prix 
-                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
-                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                    }`}>
-                      {c.prix ? `${Number(c.prix).toLocaleString()} DA` : 'Gratuit'}
-                    </span>
                   </div>
-                  <div className="space-y-3 text-gray-700 dark:text-gray-300 mt-4">
+                  
+                  {/* Contenu mobile */}
+                  <div className="p-4 space-y-4">
                     {/* Informations Patient */}
-                    <div className={`p-3 rounded-lg ${
-                      darkMode ? 'bg-blue-900/20' : 'bg-blue-50'
-                    }`}>
-                      <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        <UserIcon className="h-4 w-4 text-blue-500" /> Patient :
-                      </p> 
-                      <div className="ml-4">
-                        <span className="font-semibold text-base block">
-                          {patientInfo.fullName}
-                        </span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <UserIcon className="h-4 w-4 text-blue-500" />
+                        <span className="font-semibold">Patient</span>
+                      </div>
+                      <div className="ml-6">
+                        <p className="font-medium">{patientInfo.fullName}</p>
                         <div className="mt-1">
                           <CinBadge hasCIN={patientInfo.hasCIN} cin={patientInfo.cin} isPatient={true} />
                         </div>
                       </div>
                     </div>
-
+                    
                     {/* Informations Praticien */}
-                    <div className={`p-3 rounded-lg ${
-                      darkMode ? 'bg-green-900/20' : 'bg-green-50'
-                    }`}>
-                      <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 mb-1">
-                        <AcademicCapIcon className="h-4 w-4 text-green-500" /> Praticien :
-                      </p> 
-                      <div className="ml-4">
-                        <span className="font-semibold text-base block">
-                          {praticienInfo.fullName}
-                        </span>
+                    <div>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AcademicCapIcon className="h-4 w-4 text-green-500" />
+                        <span className="font-semibold">Praticien</span>
+                      </div>
+                      <div className="ml-6">
+                        <p className="font-medium">{praticienInfo.fullName}</p>
                         <div className="mt-1 flex flex-wrap gap-2">
                           <CinBadge hasCIN={praticienInfo.hasCIN} cin={praticienInfo.cin} isPatient={false} />
                           {praticienInfo.specialite && (
@@ -1292,79 +1258,103 @@ export default function Consultations() {
                         </div>
                       </div>
                     </div>
-
-                    <p className="flex items-center gap-2">
-                      <CalendarIcon className="h-5 w-5 text-gray-500" /> 
-                      <strong>Date :</strong> {formatDateTime(c.dateConsult)}
-                    </p>
-                    <div className="pt-3 border-t mt-3 border-gray-100 dark:border-gray-700">
+                    
+                    {/* Prix */}
+                    <div>
                       <div className="flex items-center gap-2 mb-2">
+                        <CurrencyDollarIcon className="h-4 w-4 text-green-500" />
+                        <span className="font-semibold">Prix</span>
+                      </div>
+                      <div className="ml-6">
+                        <p className={`text-xl font-bold ${
+                          c.prix 
+                            ? 'text-green-600 dark:text-green-400' 
+                            : 'text-gray-500 dark:text-gray-400'
+                        }`}>
+                          {c.prix ? `${Number(c.prix).toLocaleString()} Ar` : 'Gratuit'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Compte rendu */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <DocumentTextIcon className="h-4 w-4 text-blue-500" />
+                          <span className="font-semibold">Compte rendu</span>
+                        </div>
                         <button
                           onClick={() => toggleExpansion(c.idConsult)}
                           className="text-blue-500 hover:text-blue-700 transition"
                         >
                           {isExpanded ? <EyeSlashIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
                         </button>
-                        <p className="text-sm font-semibold text-gray-600 dark:text-gray-400">Compte rendu :</p>
                       </div>
-                      <p className={`text-base italic ${
-                        darkMode ? 'text-gray-200' : 'text-gray-800'
-                      } ${isExpanded ? '' : 'line-clamp-2'}`}>
-                        {c.compteRendu || '—'}
-                      </p>
+                      <div className="ml-6">
+                        <p className={`text-sm italic ${
+                          darkMode ? 'text-gray-300' : 'text-gray-700'
+                        } ${isExpanded ? '' : 'line-clamp-2'}`}>
+                          {c.compteRendu || '—'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex gap-4 mt-6 border-t pt-4 border-gray-100 dark:border-gray-700">
-                    <button 
-                      onClick={() => handleEdit(c)} 
-                      className="flex-1 bg-gradient-to-r from-blue-500 to-cyan-500 text-white py-3 rounded-xl hover:from-blue-600 hover:to-cyan-600 transition font-medium shadow-md"
-                    >
-                      <PencilSquareIcon className="h-5 w-5 inline mr-1" /> Modifier
-                    </button>
-                    <button 
-                      onClick={() => handleDelete(c.idConsult)} 
-                      className="flex-1 bg-gradient-to-r from-red-500 to-red-600 text-white py-3 rounded-xl hover:from-red-600 hover:to-red-700 transition font-medium shadow-md"
-                    >
-                      <TrashIcon className="h-5 w-5 inline mr-1" /> Supprimer
-                    </button>
                   </div>
                 </div>
               );
             })}
+            
+            {/* Pagination pour mobile */}
+            {totalPages > 1 && (
+              <div className={`${cardClasses} p-4`}>
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Page {page} sur {totalPages} • {consultations.length} consultations
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                        page === 1 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                      } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                    >
+                      <ChevronLeftIcon className="h-4 w-4" />
+                      Précédent
+                    </button>
+                    <select
+                      value={page}
+                      onChange={(e) => setPage(Number(e.target.value))}
+                      className={`px-3 py-2 rounded-lg border ${
+                        darkMode 
+                          ? 'bg-gray-700 border-gray-600 text-white' 
+                          : 'bg-white border-gray-300 text-gray-900'
+                      }`}
+                    >
+                      {Array.from({ length: totalPages }, (_, i) => (
+                        <option key={i + 1} value={i + 1}>
+                          Page {i + 1}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page === totalPages}
+                      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                        page === totalPages 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:bg-blue-100 dark:hover:bg-blue-900/30'
+                      } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                    >
+                      Suivant
+                      <ChevronRightIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center items-center gap-6 mt-8">
-              <button
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className={`px-6 py-3 rounded-xl disabled:opacity-50 transition font-medium flex items-center gap-2 ${
-                  darkMode
-                    ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/50'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                }`}
-              >
-                <ChevronDownIcon className="h-5 w-5 rotate-90"/> Précédent
-              </button>
-              <span className={`text-xl font-bold ${
-                darkMode ? 'text-gray-300' : 'text-gray-700'
-              }`}>
-                Page {page} / {totalPages}
-              </span>
-              <button
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className={`px-6 py-3 rounded-xl disabled:opacity-50 transition font-medium flex items-center gap-2 ${
-                  darkMode
-                    ? 'bg-blue-900/30 text-blue-300 hover:bg-blue-800/50'
-                    : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-                }`}
-              >
-                Suivant <ChevronUpIcon className="h-5 w-5 rotate-90"/>
-              </button>
-            </div>
-          )}
 
           {/* Pied de page informatif */}
           <div className={`mt-8 text-center text-sm ${

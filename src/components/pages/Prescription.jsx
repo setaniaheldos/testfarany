@@ -891,6 +891,155 @@ const App = () => {
     );
   };
 
+  // --- Composant Pagination ---
+  const Pagination = () => {
+    const maxVisiblePages = 5;
+    
+    const getPageNumbers = () => {
+      if (totalPages <= maxVisiblePages) {
+        return Array.from({ length: totalPages }, (_, i) => i + 1);
+      }
+      
+      const pages = [];
+      let startPage = Math.max(1, currentPage - 2);
+      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+      
+      if (endPage - startPage + 1 < maxVisiblePages) {
+        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+      }
+      
+      for (let i = startPage; i <= endPage; i++) {
+        pages.push(i);
+      }
+      
+      return pages;
+    };
+
+    const pageNumbers = getPageNumbers();
+
+    return (
+      <div className={`flex flex-col md:flex-row items-center justify-between gap-4 mt-8 p-4 ${cardClasses}`}>
+        {/* Informations de pagination */}
+        <div className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          Affichage de <span className="font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> à{" "}
+          <span className="font-bold">{Math.min(currentPage * itemsPerPage, filteredAndSortedPrescriptions.length)}</span> sur{" "}
+          <span className="font-bold">{filteredAndSortedPrescriptions.length}</span> prescriptions
+        </div>
+        
+        {/* Navigation de pagination */}
+        <div className="flex items-center gap-2">
+          {/* Bouton Première page */}
+          <button
+            onClick={() => setCurrentPage(1)}
+            disabled={currentPage === 1}
+            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition text-sm ${
+              currentPage === 1 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-teal-100 dark:hover:bg-teal-900/30'
+            } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+            </svg>
+            Première
+          </button>
+          
+          {/* Bouton Précédent */}
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition text-sm ${
+              currentPage === 1 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-teal-100 dark:hover:bg-teal-900/30'
+            } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Précédent
+          </button>
+          
+          {/* Numéros de page */}
+          <div className="flex gap-1">
+            {pageNumbers.map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`w-10 h-10 rounded-lg transition text-sm font-medium ${
+                  currentPage === pageNum
+                    ? darkMode 
+                      ? 'bg-teal-600 text-white' 
+                      : 'bg-teal-500 text-white'
+                    : darkMode 
+                      ? 'hover:bg-gray-700 text-gray-300' 
+                      : 'hover:bg-gray-200 text-gray-700'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
+          
+          {/* Bouton Suivant */}
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition text-sm ${
+              currentPage === totalPages 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-teal-100 dark:hover:bg-teal-900/30'
+            } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            Suivant
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          
+          {/* Bouton Dernière page */}
+          <button
+            onClick={() => setCurrentPage(totalPages)}
+            disabled={currentPage === totalPages}
+            className={`px-3 py-2 rounded-lg flex items-center gap-1 transition text-sm ${
+              currentPage === totalPages 
+                ? 'opacity-50 cursor-not-allowed' 
+                : 'hover:bg-teal-100 dark:hover:bg-teal-900/30'
+            } ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}
+          >
+            Dernière
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+            </svg>
+          </button>
+        </div>
+        
+        {/* Sélecteur de page pour mobile */}
+        <div className="flex items-center gap-2">
+          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>Page:</span>
+          <select
+            value={currentPage}
+            onChange={(e) => setCurrentPage(Number(e.target.value))}
+            className={`px-3 py-2 rounded-lg border text-sm ${
+              darkMode 
+                ? 'bg-gray-700 border-gray-600 text-white' 
+                : 'bg-white border-gray-300 text-gray-900'
+            }`}
+          >
+            {Array.from({ length: totalPages }, (_, i) => (
+              <option key={i + 1} value={i + 1}>
+                {i + 1}
+              </option>
+            ))}
+          </select>
+          <span className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            / {totalPages}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   // --- Rendu Principal ---
   return (
     <div className={containerClasses}>
@@ -1387,6 +1536,15 @@ const App = () => {
               )}
             </tbody>
           </table>
+          
+          {/* Pagination en bas du tableau */}
+          {!loading && totalPages > 1 && (
+            <div className={`border-t ${
+              darkMode ? 'border-gray-700' : 'border-gray-200'
+            }`}>
+              <Pagination />
+            </div>
+          )}
         </div>
 
         {/* Cartes Mobile */}
@@ -1406,45 +1564,9 @@ const App = () => {
           )}
         </div>
 
-        {/* Pagination */}
+        {/* Pagination pour mobile (en bas de la page) */}
         {!loading && totalPages > 1 && (
-          <div className="flex justify-center items-center gap-6 mt-8">
-            <button
-              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-              disabled={currentPage === 1}
-              className={`px-6 py-3 rounded-xl disabled:opacity-50 transition font-semibold flex items-center gap-2 shadow-lg ${
-                darkMode
-                  ? 'bg-teal-900/30 text-teal-300 hover:bg-teal-800/50'
-                  : 'bg-teal-100 text-teal-700 hover:bg-teal-200'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Précédent
-            </button>
-            
-            <span className={`text-xl font-bold ${
-              darkMode ? 'text-gray-300' : 'text-gray-700'
-            }`}>
-              Page {currentPage} / {totalPages}
-            </span>
-            
-            <button
-              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-              disabled={currentPage === totalPages}
-              className={`px-6 py-3 rounded-xl disabled:opacity-50 transition font-semibold flex items-center gap-2 shadow-lg ${
-                darkMode
-                  ? 'bg-teal-900/30 text-teal-300 hover:bg-teal-800/50'
-                  : 'bg-teal-100 text-teal-700 hover:bg-teal-200'
-              }`}
-            >
-              Suivant
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
+          <Pagination />
         )}
 
         {/* Pied de page informatif */}
