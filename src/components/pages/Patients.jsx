@@ -13,7 +13,7 @@ export default function Patients() {
   const [patients, setPatients] = useState([]);
   const [formData, setFormData] = useState({
     idPatient: null,
-    // CIN retiré du formulaire
+    // CIN retiré du formulaire mais présent dans l'état
     prenom: '',
     nom: '',
     age: '',
@@ -46,6 +46,7 @@ export default function Patients() {
     const saved = localStorage.getItem('darkMode');
     return saved ? JSON.parse(saved) : false;
   });
+  const [nextCin, setNextCin] = useState(1); // État pour suivre le prochain CIN
 
   // Appliquer le mode sombre
   useEffect(() => {
@@ -71,6 +72,11 @@ export default function Patients() {
       .then(res => {
         setPatients(res.data);
         calculateStats(res.data);
+        // Trouver le plus grand CIN pour déterminer le prochain
+        const maxCin = res.data.reduce((max, patient) => {
+          return patient.cinPatient > max ? patient.cinPatient : max;
+        }, 0);
+        setNextCin(maxCin + 1);
       })
       .catch(() => handleError("Erreur lors du chargement des patients."))
       .finally(() => setLoading(false));
@@ -103,7 +109,8 @@ export default function Patients() {
     }
     
     const dataToSend = {
-      // CIN retiré de l'envoi
+      // Ajout automatique du CIN pour les nouveaux patients
+      cinPatient: isEditing ? formData.cinPatient : nextCin,
       prenom: formData.prenom,
       nom: formData.nom,
       age: formData.age,
@@ -119,7 +126,6 @@ export default function Patients() {
         fetchPatients();
         setFormData({ 
           idPatient: null, 
-          // CIN retiré du reset
           prenom: '', 
           nom: '', 
           age: '', 
@@ -141,9 +147,18 @@ export default function Patients() {
 
   const handleEdit = (patient) => {
     if (window.confirm("⚠️ Confirmer la modification du dossier patient ?")) {
-      // Ne pas inclure le CIN lors de l'édition
-      const { cinPatient, ...patientData } = patient;
-      setFormData(patientData);
+      setFormData({
+        idPatient: patient.idPatient,
+        // CIN inclus pour l'édition mais pas affiché
+        prenom: patient.prenom,
+        nom: patient.nom,
+        age: patient.age,
+        adresse: patient.adresse,
+        email: patient.email,
+        sexe: patient.sexe,
+        telephone: patient.telephone,
+        dateCreation: patient.dateCreation
+      });
       setIsEditing(true);
       setShowForm(true);
     }
@@ -152,7 +167,6 @@ export default function Patients() {
   const handleAdd = () => {
     setFormData({ 
       idPatient: null, 
-      // CIN retiré de l'ajout
       prenom: '', 
       nom: '', 
       age: '', 
@@ -171,7 +185,6 @@ export default function Patients() {
     setIsEditing(false);
     setFormData({ 
       idPatient: null, 
-      // CIN retiré de l'annulation
       prenom: '', 
       nom: '', 
       age: '', 
@@ -240,7 +253,7 @@ export default function Patients() {
       const aVal = a[sortField] || '';
       const bVal = b[sortField] || '';
       
-      if (sortField === 'age' || sortField === 'idPatient') {
+      if (sortField === 'age' || sortField === 'idPatient' || sortField === 'cinPatient') {
         const aNum = Number(aVal) || 0;
         const bNum = Number(bVal) || 0;
         return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
@@ -267,10 +280,18 @@ export default function Patients() {
     doc.text("Liste des Patients", 14, 15);
     doc.autoTable({
       head: [[
-        "ID", "Nom", "Prénom", "Sexe", "Âge", "Adresse", "Email", "Téléphone" // CIN retiré
+        "ID", "CIN", "Nom", "Prénom", "Sexe", "Âge", "Adresse", "Email", "Téléphone"
       ]],
       body: filteredPatients.map(p => [
-        p.idPatient, p.nom, p.prenom, p.sexe, p.age, p.adresse, p.email, p.telephone // CIN retiré
+        p.idPatient, 
+        p.cinPatient || 'N/A', // CIN ajouté dans le PDF
+        p.nom, 
+        p.prenom, 
+        p.sexe, 
+        p.age, 
+        p.adresse, 
+        p.email, 
+        p.telephone
       ]),
       startY: 25,
       styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
@@ -284,7 +305,8 @@ export default function Patients() {
   const handleExportExcel = () => {
     const dataToExport = filteredPatients.map(p => ({
       ID: p.idPatient,
-      Nom: p.nom, // CIN retiré
+      CIN: p.cinPatient || 'N/A', // CIN ajouté dans l'Excel
+      Nom: p.nom,
       Prénom: p.prenom,
       Sexe: p.sexe,
       Âge: p.age,
@@ -593,7 +615,7 @@ export default function Patients() {
             {isEditing ? 'Modifier le Dossier Patient' : 'Ajouter un Nouveau Patient'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Champ CIN supprimé du formulaire */}
+            {/* Champ CIN non affiché dans le formulaire mais généré automatiquement */}
             
             <div className="flex flex-col">
               <label className={`text-sm font-medium mb-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
@@ -739,7 +761,7 @@ export default function Patients() {
           <table className="min-w-[1400px] w-full text-sm">
             <thead>
               <tr className="bg-gradient-to-r from-sky-500 to-blue-500 text-white uppercase text-left font-semibold">
-                {/* Colonne CIN retirée du tableau */}
+                {/* Colonne CIN retirée du tableau d'affichage */}
                 {['idPatient', 'nom', 'prenom', 'sexe', 'age'].map(field => (
                   <th 
                     key={field} 
@@ -785,7 +807,7 @@ export default function Patients() {
                     <td className={`px-4 py-3 font-bold ${darkMode ? 'text-sky-300' : 'text-sky-600'}`}>
                       {p.idPatient}
                     </td>
-                    {/* Cellule CIN retirée du tableau */}
+                    {/* Cellule CIN retirée du tableau d'affichage */}
                     <td className={`px-4 py-3 font-semibold ${darkMode ? 'text-gray-100' : 'text-gray-800'}`}>
                       {p.nom}
                     </td>

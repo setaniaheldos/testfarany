@@ -33,63 +33,86 @@ const UtilisateurLogin = ({ onLogin }) => {
   };
 
   return (
-    // ✨ Changement : Fond plus subtil et monochrome (gris clair)
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-all">
+    // ✨ Fond : Passage à un fond gris très subtil ou sombre, centré
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
       <form
         onSubmit={handleSubmit}
-        // ✨ Changement : Utilisation d'un fond blanc pur ou d'un gris foncé pour l'élégance, bordures plus douces, ombre subtile
-        className="bg-white dark:bg-gray-800 p-10 rounded-xl shadow-2xl shadow-gray-300/50 dark:shadow-black/50 max-w-sm w-full transition-all duration-500 transform hover:shadow-xl"
+        // ✨ Formulaire : Fond très contrasté, coins très arrondis, ombre profonde et douce, taille plus compacte
+        className="bg-white dark:bg-gray-800 p-8 sm:p-12 rounded-3xl shadow-2xl shadow-gray-400/30 dark:shadow-black/70 max-w-xs sm:max-w-sm w-full transition-all duration-500"
       >
-        <h2 
-          // ✨ Changement : Police plus simple, couleur noire/gris foncé ou blanc cassé, moins d'emphase sur l'animation du titre
-          className="text-3xl font-light mb-8 text-gray-800 dark:text-gray-100 text-center tracking-wide"
-        >
-          Bienvenue
-        </h2>
+        <div className="text-center mb-10">
+          <h2 
+            // ✨ Titre : Police très fine et épurée
+            className="text-4xl font-extralight mb-2 text-gray-800 dark:text-gray-100 tracking-wider"
+          >
+            Se connecter
+          </h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Accédez à votre compte
+          </p>
+        </div>
+        
         {error && (
-          // ✨ Changement : Message d'erreur plus discret, couleur bordeaux élégante
-          <div className="mb-6 px-4 py-3 bg-red-50 dark:bg-red-900 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 rounded-lg text-sm text-center transition-opacity duration-500">
+          // ✨ Erreur : Plus de padding, couleur rouge bordeaux discrète
+          <div className="mb-6 px-3 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-300 dark:border-red-700 rounded-lg text-sm text-center font-medium transition-opacity duration-500">
             {error}
           </div>
         )}
-        <div className="mb-5">
-          <label className="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">Email</label>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium mb-2 text-gray-600 dark:text-gray-300">
+            Adresse Email
+          </label>
           <input
             type="email"
             name="email"
             value={form.email}
             onChange={handleChange}
             required
-            // ✨ Changement : Design d'input minimaliste (bordure fine, pas de fond gris distinctif), focus élégant
-            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-gray-900 dark:text-gray-100 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-600 transition-colors"
+            // ✨ Input : Minimaliste, bordure très fine, focus avec un anneau indigo subtil
+            className="w-full border-b border-gray-300 dark:border-gray-600 py-3 px-0 text-gray-900 dark:text-gray-100 bg-transparent placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-indigo-500 transition-colors text-base"
+            placeholder="votre.email@exemple.com"
             autoFocus
           />
         </div>
+
         <div className="mb-8">
-          <label className="block text-sm font-medium mb-1 text-gray-600 dark:text-gray-300">Mot de passe</label>
+          <label className="block text-sm font-medium mb-2 text-gray-600 dark:text-gray-300">
+            Mot de passe
+          </label>
           <input
             type="password"
             name="password"
             value={form.password}
             onChange={handleChange}
             required
-            // ✨ Changement : Design d'input minimaliste (bordure fine, pas de fond gris distinctif), focus élégant
-            className="mt-1 block w-full border border-gray-300 dark:border-gray-600 rounded-lg p-3 text-gray-900 dark:text-gray-100 bg-transparent focus:outline-none focus:ring-1 focus:ring-indigo-400 dark:focus:ring-indigo-600 transition-colors"
+            // ✨ Input : Minimaliste, bordure très fine, focus avec un anneau indigo subtil
+            className="w-full border-b border-gray-300 dark:border-gray-600 py-3 px-0 text-gray-900 dark:text-gray-100 bg-transparent placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-0 focus:border-indigo-500 transition-colors text-base"
+            placeholder="Mot de passe"
           />
         </div>
+
         <button
           type="submit"
           disabled={loading}
-          // ✨ Changement : Bouton avec une couleur primaire sophistiquée (Indigo ou Bleu nuit), ombre plus douce, police plus légère
-          className={`w-full py-3 rounded-lg font-medium text-lg transition-all duration-300 tracking-wider transform hover:scale-[1.01] ${
+          // ✨ Bouton : Couleur indigo riche, effet de survol et désactivation doux, texte en majuscules pour le style
+          className={`w-full py-3.5 rounded-full font-semibold text-base uppercase tracking-widest transition-all duration-300 transform ${
             loading
-              ? 'bg-gray-300 dark:bg-gray-600 text-gray-600 dark:text-gray-400 cursor-not-allowed'
-              : 'bg-indigo-600 dark:bg-indigo-700 hover:bg-indigo-700 dark:hover:bg-indigo-600 text-white shadow-md shadow-indigo-300/50 dark:shadow-indigo-900/50'
+              ? 'bg-gray-300 dark:bg-gray-700 text-gray-600 dark:text-gray-400 cursor-not-allowed'
+              : 'bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-600 dark:hover:bg-indigo-500 text-white shadow-lg shadow-indigo-500/50 dark:shadow-indigo-900/40 hover:shadow-xl hover:shadow-indigo-500/60'
           }`}
         >
-          {loading ? 'Vérification...' : 'Se connecter'}
+          {loading ? 'Connexion en cours...' : 'CONNEXION'}
         </button>
-        {/* Suppression du bloc <style> et intégration des animations par défaut de Tailwind ou suppression pour un look plus statique et élégant. */}
+
+        <div className="text-center mt-6">
+            <a 
+                href="#" 
+                className="text-sm font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+            >
+                Mot de passe oublié ?
+            </a>
+        </div>
       </form>
     </div>
   );

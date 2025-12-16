@@ -72,15 +72,18 @@ export default function MedicalSidebar({ onLogout }) {
       </button>
 
       {/* Sidebar Desktop + Mobile */}
-      <aside
-        className={`fixed inset-y-0 left-0 z-40 flex flex-col 
-          bg-white dark:bg-gray-800 text-gray-100 dark:text-white 
-          shadow-2xl shadow-gray-400/30 dark:shadow-black/70
-          transition-all duration-300 overflow-hidden
-          ${sidebarCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH} 
-          ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
-          lg:translate-x-0`}
-      >
+<aside
+  className={`fixed inset-y-0 left-0 z-40 flex flex-col 
+    bg-white/60 dark:bg-gray-800/60 backdrop-blur-lg
+    text-gray-100 dark:text-white 
+    shadow-2xl shadow-gray-400/30 dark:shadow-black/70
+    transition-all duration-300 overflow-hidden
+    ${sidebarCollapsed ? COLLAPSED_WIDTH : SIDEBAR_WIDTH} 
+    ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'} 
+    lg:translate-x-0`}
+>
+
+
         
         {/* Conteneur interne : toujours de la largeur complète, masqué/déplié via 'sidebarCollapsed' sur l'ASIDE */}
         {/* Nous utilisons 'opacity' et 'pointer-events' pour garantir que le contenu est bien invisible et inactif lorsque la barre est masquée (w-0) */}
@@ -137,20 +140,7 @@ export default function MedicalSidebar({ onLogout }) {
           {/* Footer Sidebar (Déconnexion & Mode Sombre) */}
           <div className={`p-4 border-t border-gray-100 dark:border-gray-700 space-y-2`}>
             
-            {/* Bascule Mode Sombre (Décommenté et rendu fonctionnel si vous le souhaitez) */}
-            {/* <button
-              onClick={() => setDarkMode(!darkMode)}
-              className={`w-full flex items-center px-3 py-3 rounded-lg transition-all text-gray-600 dark:text-gray-300 
-                hover:bg-gray-100 dark:hover:bg-gray-700 gap-3`}
-              title={darkMode ? 'Mode Clair' : 'Mode Sombre'}
-            >
-              <span className="flex-shrink-0">
-                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </span>
-              <span className="text-sm">
-                {darkMode ? 'Mode Clair' : 'Mode Sombre'}
-              </span>
-            </button> */}
+       
 
             {/* Déconnexion */}
             <button

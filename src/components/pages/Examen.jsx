@@ -33,7 +33,8 @@ const FactureTousPatients = () => {
     totalPatients: 0,
     totalRevenue: 0,
     consultationsMoyennes: 0,
-    patientPlusActif: ''
+    patientPlusActif: '',
+    patientsSansCIN: 0
   });
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
   
@@ -71,7 +72,10 @@ const FactureTousPatients = () => {
         ]);
 
         let filteredPatients = pat.data;
-        if (cinPatient) {
+        
+        // MODIFICATION : Afficher tous les patients même sans CIN
+        // Si un CIN est spécifié dans l'URL, on le filtre
+        if (cinPatient && cinPatient !== 'tous') {
           filteredPatients = filteredPatients.filter(p => p.cinPatient === cinPatient);
           if (filteredPatients.length > 0) setSelectedPatient(filteredPatients[0]);
         }
@@ -97,8 +101,13 @@ const FactureTousPatients = () => {
   const calculateStats = (patientsData, consultationsData, rendezvousData) => {
     const totalPatients = patientsData.length;
     
+    // Nouvelle statistique : patients sans CIN
+    const patientsSansCIN = patientsData.filter(p => !p.cinPatient).length;
+    
     const totalRevenue = patientsData.reduce((sum, patient) => {
-      const patientRdvs = rendezvousData.filter(r => r.cinPatient === patient.cinPatient);
+      const patientRdvs = patient.cinPatient 
+        ? rendezvousData.filter(r => r.cinPatient === patient.cinPatient)
+        : [];
       const patientConsults = consultationsData.filter(c => 
         patientRdvs.some(r => r.idRdv === c.idRdv)
       );
@@ -111,7 +120,9 @@ const FactureTousPatients = () => {
 
     // Trouver le patient avec le plus de consultations
     const patientConsultCounts = patientsData.map(patient => {
-      const patientRdvs = rendezvousData.filter(r => r.cinPatient === patient.cinPatient);
+      const patientRdvs = patient.cinPatient 
+        ? rendezvousData.filter(r => r.cinPatient === patient.cinPatient)
+        : [];
       const consultCount = consultationsData.filter(c => 
         patientRdvs.some(r => r.idRdv === c.idRdv)
       ).length;
@@ -128,16 +139,22 @@ const FactureTousPatients = () => {
       consultationsMoyennes,
       patientPlusActif: patientPlusActif.patient 
         ? `${patientPlusActif.patient.prenom} ${patientPlusActif.patient.nom}`
-        : 'Aucun'
+        : 'Aucun',
+      patientsSansCIN // Nouvelle statistique
     });
   };
 
-  const normalize = (str) => str?.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "") || "";
+  const normalize = (str) => {
+    if (!str) return "";
+    return str.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  };
 
   const filteredPatients = useMemo(() => {
     let filtered = patients.filter(p =>
+      // MODIFICATION : Ajouter une condition pour les patients sans CIN
       normalize(`${p.prenom} ${p.nom}`).includes(normalize(searchTerm)) ||
-      p.cinPatient.includes(searchTerm)
+      (p.cinPatient && p.cinPatient.includes(searchTerm)) ||
+      (!p.cinPatient && searchTerm === "") // Inclure les patients sans CIN si pas de recherche
     );
 
     // Appliquer les filtres avancés
@@ -145,6 +162,11 @@ const FactureTousPatients = () => {
       filtered = filtered.filter(patient => {
         const { rdvDetails } = getPatientData(patient);
         
+        // MODIFICATION : Si patient n'a pas de rendez-vous, on le garde quand même
+        if (rdvDetails.length === 0) {
+          return true; // Garder les patients sans consultations
+        }
+
         if (filters.dateDebut || filters.dateFin) {
           const hasMatchingDate = rdvDetails.some(rdv => {
             const rdvDate = new Date(rdv.dateHeure);
@@ -208,8 +230,14 @@ const FactureTousPatients = () => {
   const getPatientData = (patient) => {
     if (!patient) return { rdvDetails: [], total: '0.00' };
 
-    const patientRdvs = rdvs.filter(r => r.cinPatient === patient.cinPatient);
-    const patientConsults = consultations.filter(c => patientRdvs.some(r => r.idRdv === c.idRdv));
+    // MODIFICATION : Si patient n'a pas de CIN, chercher par autre identifiant
+    const patientRdvs = patient.cinPatient 
+      ? rdvs.filter(r => r.cinPatient === patient.cinPatient)
+      : []; // Si pas de CIN, on retourne un tableau vide
+
+    const patientConsults = consultations.filter(c => 
+      patientRdvs.some(r => r.idRdv === c.idRdv)
+    );
 
     const rdvDetails = patientRdvs.map(rdv => {
       const consult = patientConsults.find(c => c.idRdv === rdv.idRdv);
@@ -279,7 +307,7 @@ const FactureTousPatients = () => {
       
       const patientInfoY = 60;
       doc.text(`Patient : ${patient.prenom} ${patient.nom.toUpperCase()}`, 20, patientInfoY);
-      doc.text(`CIN : ${patient.cinPatient}`, 20, patientInfoY + 6);
+      doc.text(`CIN : ${patient.cinPatient || 'Non renseigné'}`, 20, patientInfoY + 6);
       doc.text(`Téléphone : ${patient.telephone || 'Non renseigné'}`, 20, patientInfoY + 12);
       doc.text(`Email : ${patient.email || 'Non renseigné'}`, 20, patientInfoY + 18);
       doc.text(`Date d'émission : ${new Date().toLocaleDateString('fr-FR')}`, 20, patientInfoY + 24);
@@ -291,14 +319,14 @@ const FactureTousPatients = () => {
           r.heureStr,
           r.praticienNom,
           r.specialite,
-          parseFloat(r.prix || 0).toFixed(2) + ' DT'
+          parseFloat(r.prix || 0).toFixed(2) + ' Ar'
         ]);
 
         doc.autoTable({
           startY: 95,
           head: [['Date', 'Heure', 'Praticien', 'Spécialité', 'Montant']],
           body: rows,
-          foot: [['', '', '', 'TOTAL', total + ' DT']],
+          foot: [['', '', '', 'TOTAL', total + ' Ar']],
           theme: 'grid',
           headStyles: { 
             fillColor: [0, 131, 143], 
@@ -570,10 +598,7 @@ const FactureTousPatients = () => {
                 <strong>Nom complet</strong>
                 ${patient.prenom} ${patient.nom.toUpperCase()}
               </div>
-              <div class="info-item">
-                <strong>CIN</strong>
-                ${patient.cinPatient}
-              </div>
+             
               <div class="info-item">
                 <strong>Téléphone</strong>
                 ${patient.telephone || 'Non renseigné'}
@@ -699,12 +724,12 @@ const FactureTousPatients = () => {
     const data = filteredPatients.map(patient => {
       const { rdvDetails, total } = getPatientData(patient);
       return {
-        'CIN': patient.cinPatient,
+        'CIN': patient.cinPatient || 'Non renseigné',
         'Nom': patient.nom.toUpperCase(),
         'Prénom': patient.prenom,
         'Téléphone': patient.telephone || '',
         'Email': patient.email || '',
-        'Total Facturé (DT)': parseFloat(total),
+        'Total Facturé (Ar)': parseFloat(total),
         'Nombre Consultations': rdvDetails.length,
         'Dernière Consultation': rdvDetails.length > 0 ? rdvDetails[rdvDetails.length - 1].dateStr : ''
       };
@@ -877,7 +902,22 @@ const FactureTousPatients = () => {
             </div>
           </div>
 
-          
+          <div className={`${cardClasses} p-4 sm:p-6 transform hover:scale-105 transition-transform duration-300`}>
+            <div className="flex items-center justify-between">
+              <div>
+                <p className={`text-xs sm:text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  Patients sans CIN
+                </p>
+                <p className="text-xl sm:text-2xl lg:text-3xl font-bold text-amber-500">{stats.patientsSansCIN || 0}</p>
+                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} mt-1`}>
+                  Nécessite mise à jour
+                </p>
+              </div>
+              <div className="w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-amber-500 bg-amber-100 dark:bg-amber-900/30 p-1 sm:p-2 rounded-xl flex items-center justify-center">
+                ⚠️
+              </div>
+            </div>
+          </div>
 
           <div className={`${cardClasses} p-4 sm:p-6 transform hover:scale-105 transition-transform duration-300`}>
             <div className="flex items-center justify-between">
@@ -935,9 +975,49 @@ const FactureTousPatients = () => {
                 <span className="sm:hidden">Filtres</span>
               </button>
 
-              
+              <button
+                onClick={exportExcel}
+                className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm sm:text-base flex-1 lg:flex-none ${
+                  darkMode
+                    ? 'bg-green-700 hover:bg-green-600 text-white'
+                    : 'bg-green-500 hover:bg-green-600 text-white'
+                }`}
+              >
+                <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span className="hidden sm:inline">Excel</span>
+                <span className="sm:hidden">Excel</span>
+              </button>
 
-             
+              <button
+                onClick={exportAllPDF}
+                disabled={exportLoading}
+                className={`px-3 sm:px-4 py-2 sm:py-3 rounded-xl transition-all flex items-center gap-2 font-semibold text-sm sm:text-base flex-1 lg:flex-none ${
+                  exportLoading 
+                    ? 'opacity-70 cursor-not-allowed' 
+                    : ''
+                } ${
+                  darkMode
+                    ? 'bg-red-700 hover:bg-red-600 text-white'
+                    : 'bg-red-500 hover:bg-red-600 text-white'
+                }`}
+              >
+                {exportLoading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Export...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <span className="hidden sm:inline">Tous les PDF</span>
+                    <span className="sm:hidden">PDFs</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
 
@@ -1040,18 +1120,23 @@ const FactureTousPatients = () => {
                 const { total } = getPatientData(patient);
                 return (
                   <div 
-                    key={patient.cinPatient} 
+                    key={patient.id || patient.cinPatient || Math.random()} 
                     className={`${cardClasses} p-4 transition-all duration-200`}
                     onClick={() => setSelectedPatient(patient)}
                   >
                     <div className="flex justify-between items-start mb-3">
                       <div className="flex-1">
-                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-base">
+                        <div className="font-semibold text-gray-900 dark:text-gray-100 text-base flex items-center gap-2">
                           {patient.nom.toUpperCase()} {patient.prenom}
+                          {/* {!patient.cinPatient && (
+                            <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                              Sans CIN
+                            </span>
+                          )} */}
                         </div>
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          CIN: {patient.cinPatient}
-                        </div>
+                        {/* <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                          {patient.cinPatient ? `CIN: ${patient.cinPatient}` : 'Pas de CIN'}
+                        </div> */}
                         <div className="text-xs text-gray-500 dark:text-gray-400">
                           {patient.age} ans • {patient.sexe}
                         </div>
@@ -1126,7 +1211,7 @@ const FactureTousPatients = () => {
                       : 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
                   }`}>
                     <tr>
-                      <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">CIN Patient</th>
+                      {/* <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">CIN Patient</th> */}
                       <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Informations Patient</th>
                       <th className="px-4 sm:px-6 py-3 sm:py-4 text-left font-semibold text-sm sm:text-base">Contact</th>
                       <th className="px-4 sm:px-6 py-3 sm:py-4 text-right font-semibold text-sm sm:text-base">Total Facturé</th>
@@ -1140,7 +1225,7 @@ const FactureTousPatients = () => {
                       const { total } = getPatientData(patient);
                       return (
                         <tr 
-                          key={patient.cinPatient} 
+                          key={patient.id || patient.cinPatient || Math.random()} 
                           className={`transition-all duration-200 cursor-pointer ${
                             darkMode 
                               ? 'hover:bg-teal-900/20' 
@@ -1148,9 +1233,16 @@ const FactureTousPatients = () => {
                           }`}
                           onClick={() => setSelectedPatient(patient)}
                         >
-                          <td className="px-4 sm:px-6 py-3 sm:py-4 font-mono text-xs sm:text-sm font-semibold text-teal-700 dark:text-teal-300">
-                            {patient.cinPatient}
-                          </td>
+                          {/* <td className="px-4 sm:px-6 py-3 sm:py-4">
+                            <div className="font-mono text-xs sm:text-sm font-semibold text-teal-700 dark:text-teal-300">
+                              {patient.cinPatient ? patient.cinPatient : <span className="text-gray-400 italic">Pas de CIN</span>}
+                            </div>
+                            {!patient.cinPatient && (
+                              <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 mt-1">
+                                Sans CIN
+                              </span>
+                            )}
+                          </td> */}
                           <td className="px-4 sm:px-6 py-3 sm:py-4">
                             <div className="font-semibold text-gray-900 dark:text-gray-100">
                               {patient.nom.toUpperCase()} {patient.prenom}
@@ -1231,14 +1323,19 @@ const FactureTousPatients = () => {
               {/* En-tête Modal */}
               <div className="bg-gradient-to-r from-teal-500 to-cyan-500 p-4 sm:p-6 text-white">
                 <div className="flex justify-between items-start">
-                  <div className="flex-1 pr-4">
-                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold truncate">
+                  {/* <div className="flex-1 pr-4">
+                    <h2 className="text-lg sm:text-xl lg:text-2xl font-bold truncate flex items-center gap-2">
                       {selectedPatient.prenom} {selectedPatient.nom.toUpperCase()}
+                      {!selectedPatient.cinPatient && (
+                        <span className="inline-block px-2 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+                          Sans CIN
+                        </span>
+                      )}
                     </h2>
                     <p className="opacity-90 mt-1 text-xs sm:text-sm truncate">
-                      CIN : {selectedPatient.cinPatient} • Tél: {selectedPatient.telephone || 'Non renseigné'}
+                      {selectedPatient.cinPatient ? `CIN : ${selectedPatient.cinPatient}` : 'Pas de CIN'} • Tél: {selectedPatient.telephone || 'Non renseigné'}
                     </p>
-                  </div>
+                  </div> */}
                   <button 
                     onClick={() => setSelectedPatient(null)}
                     className="p-1 sm:p-2 hover:bg-white/20 rounded-full transition-colors flex-shrink-0"
