@@ -342,23 +342,7 @@ app.get('/api/paiements/stats', (req, res) => {
   });
 });
 
-// Route pour récupérer les consultations qui n'ont pas encore été payées
-app.get('/api/consultations/non-payees', (req, res) => {
-  const sql = `
-    SELECT c.idConsult, c.prix, pat.nom as nomPatient, pat.prenom
-    FROM consultations c
-    JOIN rendezvous r ON c.idRdv = r.idRdv
-    JOIN patients pat ON r.cinPatient = pat.cinPatient
-    LEFT JOIN paiements p ON c.idConsult = p.idConsult
-    WHERE p.idConsult IS NULL
-    ORDER BY c.idConsult DESC
-  `;
-  
-  db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
-});
+
 
 
 
