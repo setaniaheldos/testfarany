@@ -214,9 +214,10 @@ db.run(`
   console.log('✅ Toutes les tables ont été créées (si elles n’existaient pas)');
 });
 
+// Ajoute ces imports en haut de ton fichier (si pas déjà fait)
+const { v4: uuid } = require('uuid'); // npm install uuid
 
-// Assure-toi d'avoir ceci au début de ton fichier
-
+// ... ton code existant (getMvolaToken, etc.) ...
 
 app.post('/api/paiements', async (req, res) => {
   const { idConsult, modePaiement, numeroClient, montant } = req.body;
@@ -255,12 +256,14 @@ app.post('/api/paiements', async (req, res) => {
       try {
         const token = await getMvolaToken();
 
+        const xCorrelationId = uuid(); // UUID v4 recommandé
+
         const paymentData = {
           amount: montant.toString(),
-          currency: "MGA",
+          currency: "Ar", // Recommandé par la doc officielle (Ariary)
           descriptionText: `Paiement consultation ${idConsult}`,
           requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`,
-          requestDate: new Date().toISOString(),
+          requestDate: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), // Format strict
           debitParty: [{ key: "msisdn", value: cleanedNum }],
           creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }]
         };
@@ -271,35 +274,45 @@ app.post('/api/paiements', async (req, res) => {
           {
             headers: {
               Authorization: `Bearer ${token}`,
-              'X-CorrelationID': `corr-${Date.now()}`,
+              'Version': '1.0',
+              'X-CorrelationID': xCorrelationId,
               'Content-Type': 'application/json',
-              Version: '1.0',
-              UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`
+              'Cache-Control': 'no-cache',
+              'UserLanguage': 'MG', // ou 'FR' selon tes préférences (messages client)
+              'UserAccountIdentifier': `msisdn;${MERCHANT_MSISDN}`,
+              'partnerName': process.env.MVOLA_PARTNER_NAME || 'Ge_patient' // <<< À METTRE EN ENV VAR OBLIGATOIREMENT !
             }
           }
         );
 
         if (response.status === 202) {
+          const serverCorrelationId = response.data.serverCorrelationId;
+
           await new Promise((resolve, reject) => {
             db.run(
               `INSERT INTO paiements (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient)
                VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
-              [idConsult, montant, response.data.serverCorrelationId, cleanedNum],
+              [idConsult, montant, serverCorrelationId, cleanedNum],
               err => err ? reject(err) : resolve()
             );
           });
 
           return res.json({
-            message: "Demande MVola envoyée",
+            message: "Demande MVola envoyée avec succès",
             statut: "EN_ATTENTE",
-            correlationId: response.data.serverCorrelationId
+            correlationId: serverCorrelationId,
+            xCorrelationId // pour debug si besoin
           });
         } else {
-          return res.status(500).json({ error: "Échec MVola", details: response.data });
+          console.error("Réponse inattendue MVola:", response.status, response.data);
+          return res.status(500).json({ error: "Réponse inattendue de MVola", details: response.data });
         }
       } catch (mvErr) {
-        console.error("Erreur MVola:", mvErr.response?.data || mvErr.message);
-        return res.status(500).json({ error: "Échec de la demande MVola", details: mvErr.response?.data || mvErr.message });
+        console.error("Erreur MVola détaillée:", mvErr.response?.status, mvErr.response?.data || mvErr.message);
+        return res.status(500).json({
+          error: "Échec de la demande MVola",
+          details: mvErr.response?.data || mvErr.message
+        });
       }
     }
 
@@ -321,21 +334,31 @@ app.post('/api/paiements', async (req, res) => {
   }
 });
 
-// CALLBACK MVOLA
-app.post('/api/mvola/callback', (req, res) => {
-  const { transactionStatus, serverCorrelationId } = req.body;
-  console.log('CALLBACK MVOLA:', req.body);
+// CALLBACK MVOLA (accepte POST et PUT)
+app.all('/api/mvola/callback', (req, res) => {
+  console.log('CALLBACK MVOLA reçu:', req.method, req.body);
 
-  if (transactionStatus === 'completed') {
-    db.run(`UPDATE paiements SET statut='REUSSI' WHERE referenceTransaction=?`, [serverCorrelationId], err => {
-      if (err) console.error("Erreur update paiement:", err);
-    });
+  const data = req.body;
+
+  if (data.transactionStatus === 'completed' && data.serverCorrelationId) {
+    db.run(
+      `UPDATE paiements SET statut='REUSSI' WHERE referenceTransaction=?`,
+      [data.serverCorrelationId],
+      err => {
+        if (err) console.error("Erreur update paiement REUSSI:", err);
+        else console.log("Paiement marqué REUSSI:", data.serverCorrelationId);
+      }
+    );
+  } else if (data.transactionStatus === 'failed' && data.serverCorrelationId) {
+    db.run(
+      `UPDATE paiements SET statut='ECHOUE' WHERE referenceTransaction=?`,
+      [data.serverCorrelationId],
+      err => err && console.error("Erreur update paiement ECHOUE:", err)
+    );
   }
 
   res.status(200).send('OK');
 });
-
-
 
 
 
