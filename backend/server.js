@@ -279,7 +279,7 @@ app.post('/api/paiements', async (req, res) => {
                         'Authorization': `Bearer ${token}`,
                         'X-CorrelationID': correlationId,
                         'UserLanguage': 'FR',
-                        'UserIp': '82.165.15.45', // Optionnel mais recommandé
+                        'UserIp': '127.0.0.1', // Optionnel mais recommandé
                         'Content-Type': 'application/json',
                         'Version': '1.0'
                     }
