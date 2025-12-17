@@ -17,6 +17,7 @@ import AdminDAs from './components/admin/AdminDashboard';
 import Consultations from './components/pages/Consultations';
 import Prescription from './components/pages/Prescription';
 import Examen from './components/pages/Examen';
+import Payement from './components/pages/payement';
 // import Consultation from './components/pages/Consultations';
 
 export default function App() {
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/utilisateur" element={<Utilisateur />} />
           <Route path="/admin-auth" element={<AdminAuth />} />
           <Route path="/prescription" element={<Prescription />} />
+          <Route path="/payement" element={<Payement />} />
           <Route
             path="/utilisateur-login"
             element={<UtilisateurLogin onLogin={handleUserLogin} />}
