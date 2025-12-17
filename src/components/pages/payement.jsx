@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -8,9 +9,9 @@ const GestionPaiements = () => {
     const [stats, setStats] = useState([]);
     const [loading, setLoading] = useState(false);
     
-    // États pour le formulaire de paiement
+    // États pour le formulaire
     const [showModal, setShowModal] = useState(false);
-    const [selectedConsult, setSelectedConsult] = useState(null);
+    const [selectedConsultId, setSelectedConsultId] = useState('');
     const [paymentMode, setPaymentMode] = useState('Espece');
     const [phone, setPhone] = useState('');
 
@@ -31,21 +32,18 @@ const GestionPaiements = () => {
         fetchData();
     }, []);
 
-    // Ouvrir le formulaire pour une consultation spécifique
-    const openPaymentForm = (consult) => {
-        setSelectedConsult(consult);
-        setShowModal(true);
-    };
-
-    // Soumettre le paiement au backend
+    // Soumettre le paiement
     const submitPayment = async (e) => {
         e.preventDefault();
-        setLoading(true);
+        if(!selectedConsultId) return alert("Veuillez choisir une consultation");
 
+        const consult = consultations.find(c => c.idConsult === parseInt(selectedConsultId));
+        
+        setLoading(true);
         try {
             const payload = {
-                idConsult: selectedConsult.idConsult,
-                montant: selectedConsult.prix,
+                idConsult: consult.idConsult,
+                montant: consult.prix,
                 modePaiement: paymentMode,
                 numeroClient: paymentMode === 'MVola' ? phone : null
             };
@@ -53,65 +51,67 @@ const GestionPaiements = () => {
             const response = await axios.post(`${API_URL}/api/paiements`, payload);
             alert(response.data.message);
             
-            setShowModal(false); // Fermer le formulaire
-            setPhone('');        // Réinitialiser le téléphone
-            fetchData();         // Rafraîchir les données
+            setShowModal(false);
+            resetForm();
+            fetchData();
         } catch (err) {
-            alert("Erreur : " + (err.response?.data?.error || "Transaction échouée"));
+            alert("Erreur : " + (err.response?.data?.error || "Échec du paiement"));
         } finally {
             setLoading(false);
         }
     };
 
+    const resetForm = () => {
+        setSelectedConsultId('');
+        setPhone('');
+        setPaymentMode('Espece');
+    };
+
     return (
-        <div style={{ padding: '20px', backgroundColor: '#f9f9f9', minHeight: '100vh', fontFamily: 'sans-serif' }}>
+        <div style={{ padding: '30px', backgroundColor: '#f4f7f6', minHeight: '100vh', fontFamily: 'Segoe UI, sans-serif' }}>
             
-            {/* --- DASHBOARD STATS --- */}
-            <h2 style={{ color: '#2c3e50' }}>📊 Tableau de Bord Financier</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' }}>
+                <h1 style={{ color: '#2c3e50', margin: 0 }}>💰 Gestion Financière</h1>
+                {/* --- LE BOUTON AJOUTER PAIEMENT --- */}
+                <button 
+                    onClick={() => setShowModal(true)} 
+                    style={mainBtnStyle}>
+                    + Nouveau Paiement
+                </button>
+            </div>
+
+            {/* --- DASHBOARD --- */}
             <div style={{ display: 'flex', gap: '20px', marginBottom: '30px' }}>
                 {stats.map(s => (
                     <div key={s.modePaiement} style={statCard(s.modePaiement)}>
-                        <h4 style={{ margin: 0 }}>Total {s.modePaiement}</h4>
-                        <p style={{ fontSize: '24px', fontWeight: 'bold', margin: '10px 0' }}>{s.total.toLocaleString()} Ar</p>
-                        <small>{s.nombre} transactions</small>
+                        <h4 style={{ margin: 0, opacity: 0.8 }}>Total {s.modePaiement}</h4>
+                        <p style={{ fontSize: '28px', fontWeight: 'bold', margin: '10px 0' }}>{s.total.toLocaleString()} Ar</p>
+                        <small>{s.nombre} encaissements</small>
                     </div>
                 ))}
             </div>
 
-            {/* --- LISTE DES CONSULTATIONS --- */}
-            <h2 style={{ color: '#2c3e50' }}>💰 Liste des Consultations</h2>
-            <div style={{ backgroundColor: 'white', borderRadius: '10px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
+            {/* --- TABLEAU --- */}
+            <div style={tableContainer}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <thead>
-                        <tr style={{ backgroundColor: '#34495e', color: 'white', textAlign: 'left' }}>
-                            <th style={paddingStyle}>ID</th>
+                        <tr style={{ backgroundColor: '#ecf0f1', textAlign: 'left' }}>
+                            <th style={paddingStyle}>ID Consult</th>
                             <th style={paddingStyle}>Date</th>
-                            <th style={paddingStyle}>Prix</th>
+                            <th style={paddingStyle}>Montant</th>
                             <th style={paddingStyle}>Statut</th>
-                            <th style={paddingStyle}>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         {consultations.map(c => (
                             <tr key={c.idConsult} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={paddingStyle}>{c.idConsult}</td>
+                                <td style={paddingStyle}>#{c.idConsult}</td>
                                 <td style={paddingStyle}>{new Date(c.dateConsult).toLocaleDateString()}</td>
                                 <td style={paddingStyle}><strong>{c.prix} Ar</strong></td>
                                 <td style={paddingStyle}>
                                     <span style={statusBadge(c.statutPaiement)}>
-                                        {c.statutPaiement || "EN ATTENTE"}
+                                        {c.statutPaiement || "NON PAYÉ"}
                                     </span>
-                                </td>
-                                <td style={paddingStyle}>
-                                    {c.statutPaiement !== 'REUSSI' ? (
-                                        <button 
-                                            onClick={() => openPaymentForm(c)}
-                                            style={btnStyle('#3498db')}>
-                                            💳 Régler
-                                        </button>
-                                    ) : (
-                                        <span style={{ color: '#27ae60', fontWeight: 'bold' }}>✅ Payé</span>
-                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -119,46 +119,61 @@ const GestionPaiements = () => {
                 </table>
             </div>
 
-            {/* --- MODAL : FORMULAIRE DE PAIEMENT --- */}
+            {/* --- MODAL FORMULAIRE --- */}
             {showModal && (
                 <div style={modalOverlay}>
                     <div style={modalContent}>
-                        <h3>Nouveau Paiement</h3>
-                        <p>Consultation n°<strong>{selectedConsult?.idConsult}</strong></p>
-                        <p>Montant à payer : <strong style={{color: '#27ae60'}}>{selectedConsult?.prix} Ar</strong></p>
-                        <hr />
-                        
+                        <h2 style={{marginTop: 0}}>Effectuer un Paiement</h2>
                         <form onSubmit={submitPayment}>
-                            <label style={{display: 'block', marginBottom: '10px'}}>Mode de paiement :</label>
+                            
+                            <label style={labelStyle}>Sélectionner la Consultation :</label>
+                            <select 
+                                value={selectedConsultId} 
+                                onChange={(e) => setSelectedConsultId(e.target.value)}
+                                style={inputStyle}
+                                required
+                            >
+                                <option value="">-- Choisir une consultation --</option>
+                                {consultations
+                                    .filter(c => c.statutPaiement !== 'REUSSI')
+                                    .map(c => (
+                                        <option key={c.idConsult} value={c.idConsult}>
+                                            Consultation #{c.idConsult} - {c.prix} Ar
+                                        </option>
+                                    ))
+                                }
+                            </select>
+
+                            <label style={labelStyle}>Mode de Paiement :</label>
                             <select 
                                 value={paymentMode} 
                                 onChange={(e) => setPaymentMode(e.target.value)}
                                 style={inputStyle}
                             >
                                 <option value="Espece">💵 Espèce</option>
-                                <option value="MVola">🇲📱 MVola (API)</option>
+                                <option value="MVola">🇲📱 MVola (STK Push)</option>
                             </select>
 
                             {paymentMode === 'MVola' && (
-                                <div style={{marginTop: '15px'}}>
-                                    <label style={{display: 'block', marginBottom: '5px'}}>Numéro de téléphone :</label>
+                                <>
+                                    <label style={labelStyle}>Numéro MVola :</label>
                                     <input 
                                         type="text" 
                                         placeholder="034XXXXXXXX" 
                                         value={phone}
                                         onChange={(e) => setPhone(e.target.value)}
-                                        required 
                                         style={inputStyle}
+                                        required 
                                     />
-                                </div>
+                                </>
                             )}
 
-                            <div style={{ display: 'flex', gap: '10px', marginTop: '25px' }}>
-                                <button type="submit" disabled={loading} style={btnStyle('#27ae60', '#fff', '100%')}>
-                                    {loading ? 'Traitement...' : 'Confirmer le Paiement'}
+                            <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
+                                <button type="submit" disabled={loading} style={confirmBtn}>
+                                    {loading ? 'Connexion MVola...' : 'Valider le Paiement'}
                                 </button>
-                                <button type="button" onClick={() => setShowModal(false)} style={btnStyle('#e74c3c', '#fff', '100%')}>
-                                    Annuler
+                                <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>
+                                    Fermer
                                 </button>
                             </div>
                         </form>
@@ -170,63 +185,59 @@ const GestionPaiements = () => {
 };
 
 // --- STYLES ---
-
-const paddingStyle = { padding: '15px' };
-
-const statCard = (mode) => ({
-    flex: 1,
-    padding: '20px',
-    borderRadius: '10px',
+const mainBtnStyle = {
+    backgroundColor: '#3498db',
     color: 'white',
-    backgroundColor: mode === 'MVola' ? '#f39c12' : mode === 'Espece' ? '#27ae60' : '#95a5a6',
-    minWidth: '200px'
-});
-
-const statusBadge = (statut) => ({
-    padding: '5px 12px',
-    borderRadius: '15px',
-    fontSize: '11px',
-    fontWeight: 'bold',
-    backgroundColor: statut === 'REUSSI' ? '#d4edda' : '#fff3cd',
-    color: statut === 'REUSSI' ? '#155724' : '#856404'
-});
-
-const btnStyle = (color, textColor = 'white', width = 'auto') => ({
-    backgroundColor: color,
-    color: textColor,
+    padding: '12px 24px',
     border: 'none',
-    padding: '10px 15px',
-    borderRadius: '5px',
+    borderRadius: '8px',
     cursor: 'pointer',
     fontWeight: 'bold',
-    width: width
-});
+    fontSize: '16px'
+};
+
+const tableContainer = {
+    backgroundColor: 'white',
+    borderRadius: '12px',
+    boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+    overflow: 'hidden'
+};
+
+const labelStyle = { display: 'block', marginBottom: '8px', fontWeight: '600', color: '#34495e', marginTop: '15px' };
 
 const inputStyle = {
     width: '100%',
-    padding: '10px',
-    borderRadius: '5px',
+    padding: '12px',
+    borderRadius: '6px',
     border: '1px solid #ddd',
-    fontSize: '16px',
     boxSizing: 'border-box'
 };
 
 const modalOverlay = {
-    position: 'fixed',
-    top: 0, left: 0, right: 0, bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000
+    position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000
 };
 
 const modalContent = {
-    backgroundColor: 'white',
-    padding: '30px',
-    borderRadius: '12px',
-    width: '400px',
-    boxShadow: '0 5px 15px rgba(0,0,0,0.3)'
+    backgroundColor: 'white', padding: '30px', borderRadius: '15px', width: '450px'
 };
+
+const confirmBtn = { backgroundColor: '#27ae60', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', flex: 1, cursor: 'pointer', fontWeight: 'bold' };
+const cancelBtn = { backgroundColor: '#95a5a6', color: 'white', border: 'none', padding: '12px', borderRadius: '6px', cursor: 'pointer' };
+
+const paddingStyle = { padding: '15px' };
+
+const statCard = (mode) => ({
+    flex: 1, padding: '20px', borderRadius: '12px', color: 'white',
+    backgroundColor: mode === 'MVola' ? '#f39c12' : '#27ae60',
+    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
+});
+
+const statusBadge = (statut) => ({
+    padding: '6px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold',
+    backgroundColor: statut === 'REUSSI' ? '#e8f5e9' : '#fff3e0',
+    color: statut === 'REUSSI' ? '#2e7d32' : '#ef6c00'
+});
 
 export default GestionPaiements;
