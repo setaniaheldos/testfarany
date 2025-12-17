@@ -220,7 +220,7 @@ db.run(`
 
 
 
-// --- ROUTE DE PAIEMENT UNIFIÉE (MVola & Espèce) ---
+// --- ROUTE DE PAIEMENT UNIFIÉE CORRIGÉE ---
 app.post('/api/paiements', async (req, res) => {
     const { idConsult, modePaiement, numeroClient, montant } = req.body;
 
@@ -229,8 +229,13 @@ app.post('/api/paiements', async (req, res) => {
         return res.status(400).json({ error: "Données manquantes ou invalides" });
     }
 
+    // 2. Validation spécifique MVola
+    if (modePaiement === 'MVola' && !numeroClient) {
+        return res.status(400).json({ error: "Numéro client requis pour MVola" });
+    }
+
     try {
-        // 2. Vérification consultation et paiement existant (Promisified pour plus de clarté)
+        // 3. Vérification consultation
         const consult = await new Promise((resolve, reject) => {
             db.get('SELECT prix FROM consultations WHERE idConsult = ?', [idConsult], (err, row) => {
                 if (err) reject(err); else resolve(row);
@@ -238,124 +243,243 @@ app.post('/api/paiements', async (req, res) => {
         });
 
         if (!consult) return res.status(404).json({ error: "Consultation non trouvée" });
-        if (parseFloat(montant) !== parseFloat(consult.prix)) {
-            return res.status(400).json({ error: `Le montant doit être de ${consult.prix} Ar` });
+        
+        // Tolérance de 1 Ariary pour les arrondis
+        if (Math.abs(parseFloat(montant) - parseFloat(consult.prix)) > 1) {
+            return res.status(400).json({ 
+                error: "Montant incorrect", 
+                detail: `Montant attendu: ${consult.prix} Ar` 
+            });
         }
 
+        // 4. Vérifier si paiement existe déjà
         const existingPaiement = await new Promise((resolve, reject) => {
             db.get('SELECT idPay FROM paiements WHERE idConsult = ?', [idConsult], (err, row) => {
                 if (err) reject(err); else resolve(row);
             });
         });
 
-        if (existingPaiement) return res.status(400).json({ error: "Cette consultation est déjà payée ou en cours" });
+        if (existingPaiement) {
+            return res.status(400).json({ 
+                error: "Paiement déjà effectué", 
+                statut: "EXISTANT" 
+            });
+        }
 
         // --- TRAITEMENT MVOLA ---
         if (modePaiement === 'MVola') {
-            const formattedPhone = numeroClient.replace(/\s/g, '');
+            const formattedPhone = (numeroClient || '').replace(/\s/g, '');
             if (!/^03[2348]\d{7}$/.test(formattedPhone)) {
-                return res.status(400).json({ error: "Numéro MVola invalide" });
+                return res.status(400).json({ 
+                    error: "Numéro MVola invalide",
+                    format: "Doit commencer par 032, 033, 034 ou 038 et avoir 10 chiffres" 
+                });
             }
 
-            const token = await getMvolaToken();
-            const correlationId = `corr-${Date.now()}`;
-            
-            // PAYLOAD OBLIGATOIRE POUR MVOLA
-            const paymentData = {
-                amount: montant.toString(),
-                currency: "Ar",
-                description: `Consultation ${idConsult}`,
-                subscriberNumber: formattedPhone, // Le client qui paye
-                receivingMsisdn: process.env.MERCHANT_MSISDN, // VOUS (le marchand)
-                transactionReference: `CONS-${idConsult}`,
-                originatingCountry: "MG"
-            };
+            try {
+                const token = await getMvolaToken();
+                const correlationId = `corr-${Date.now()}`;
+                
+                // PAYLOAD CORRECT pour MVola
+                const paymentData = {
+                    amount: parseFloat(montant).toString(), // Convertir en string
+                    currency: "MGA", // Correction: "MGA" au lieu de "Ar"
+                    descriptionText: `Paiement consultation ${idConsult}`, // Correction: "descriptionText"
+                    requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`, // Référence unique
+                    requestDate: new Date().toISOString(),
+                    debitParty: [
+                        { 
+                            key: "msisdn", 
+                            value: formattedPhone // Le client qui paye
+                        }
+                    ],
+                    creditParty: [
+                        { 
+                            key: "msisdn", 
+                            value: process.env.MERCHANT_MSISDN // Votre numéro marchand
+                        }
+                    ]
+                };
 
-            const response = await axios.post(
-                `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0/`,
-                paymentData,
-                {
-                    headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'X-CorrelationID': correlationId,
-                        'UserLanguage': 'FR',
-                        'UserIp': '127.0.0.1', // Optionnel mais recommandé
-                        'Content-Type': 'application/json',
-                        'Version': '1.0'
+                console.log('📤 Envoi MVola:', {
+                    url: `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
+                    data: paymentData
+                });
+
+                const response = await axios.post(
+                    `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
+                    paymentData,
+                    {
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'X-CorrelationID': correlationId,
+                            'Content-Type': 'application/json',
+                            'Version': '1.0',
+                            'UserAccountIdentifier': `msisdn;${process.env.MERCHANT_MSISDN}`,
+                            'partnerName': process.env.MVOLA_PARTNER_NAME || 'VotreEntreprise'
+                        },
+                        timeout: 30000
                     }
-                }
-            );
+                );
 
-            if (response.status === 202) {
-                const serverCorrId = response.data.serverCorrelationId;
+                console.log('✅ Réponse MVola:', {
+                    status: response.status,
+                    data: response.data
+                });
+
+                if (response.status === 202) {
+                    const serverCorrId = response.data.serverCorrelationId;
+                    await new Promise((resolve, reject) => {
+                        db.run(
+                            `INSERT INTO paiements (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient, datePaiement) 
+                             VALUES (?, ?, ?, ?, ?, ?, datetime('now'))`,
+                            [idConsult, montant, 'MVola', 'EN_ATTENTE', serverCorrId, formattedPhone],
+                            (err) => { if (err) reject(err); else resolve(); }
+                        );
+                    });
+                    
+                    return res.json({ 
+                        success: true,
+                        message: "Demande de paiement envoyée. Le patient doit confirmer sur son téléphone.", 
+                        statut: "EN_ATTENTE", 
+                        correlationId: serverCorrId,
+                        transactionRef: paymentData.requestingOrganisationTransactionReference
+                    });
+                } else {
+                    throw new Error(`Statut inattendu: ${response.status}`);
+                }
+
+            } catch (mvErr) {
+                console.error('❌ Erreur MVola détaillée:', {
+                    status: mvErr.response?.status,
+                    data: mvErr.response?.data,
+                    message: mvErr.message
+                });
+                
+                // Enregistrer l'échec en base
                 await new Promise((resolve, reject) => {
                     db.run(
-                        `INSERT INTO paiements (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient) 
-                         VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
-                        [idConsult, montant, serverCorrId, formattedPhone],
+                        `INSERT INTO paiements (idConsult, montant, modePaiement, statut, erreur, datePaiement) 
+                         VALUES (?, ?, ?, ?, ?, datetime('now'))`,
+                        [idConsult, montant, 'MVola', 'ECHEC', mvErr.response?.data?.errorDescription || mvErr.message],
                         (err) => { if (err) reject(err); else resolve(); }
                     );
                 });
-                return res.json({ message: "Demande envoyée sur le téléphone du client", status: "EN_ATTENTE", correlationId: serverCorrId });
+                
+                return res.status(500).json({ 
+                    error: "Échec de la transaction MVola",
+                    detail: mvErr.response?.data || mvErr.message
+                });
             }
         } 
         
-        // --- TRAITEMENT ESPÈCES ---
+        // --- TRAITEMENT ESPÈCES (SIMPLIFIÉ) ---
         else if (modePaiement === 'Espece') {
-            await new Promise((resolve, reject) => {
-                db.run(
-                    `INSERT INTO paiements (idConsult, montant, modePaiement, statut) VALUES (?, ?, 'Espece', 'REUSSI')`,
-                    [idConsult, montant],
-                    (err) => { if (err) reject(err); else resolve(); }
-                );
-            });
-            return res.json({ message: "Paiement en espèces enregistré", statut: "REUSSI" });
+            try {
+                await new Promise((resolve, reject) => {
+                    db.run(
+                        `INSERT INTO paiements (idConsult, montant, modePaiement, statut, datePaiement) 
+                         VALUES (?, ?, ?, ?, datetime('now'))`,
+                        [idConsult, montant, 'Espece', 'REUSSI'],
+                        (err) => { 
+                            if (err) {
+                                console.error('Erreur DB espèces:', err);
+                                reject(err); 
+                            } else {
+                                resolve(); 
+                            }
+                        }
+                    );
+                });
+                
+                console.log('✅ Paiement espèces enregistré:', { idConsult, montant });
+                
+                return res.json({ 
+                    success: true,
+                    message: "Paiement en espèces enregistré avec succès", 
+                    statut: "REUSSI" 
+                });
+                
+            } catch (dbErr) {
+                console.error('❌ Erreur DB espèces:', dbErr);
+                return res.status(500).json({ 
+                    error: "Erreur base de données", 
+                    detail: dbErr.message 
+                });
+            }
+        } else {
+            return res.status(400).json({ error: "Mode de paiement non supporté" });
         }
 
     } catch (error) {
-        console.error("Erreur détaillée:", error.response?.data || error.message);
+        console.error("❌ Erreur générale paiement:", error);
         res.status(500).json({ 
-            error: "Erreur lors du traitement", 
-            details: error.response?.data || error.message 
+            error: "Erreur lors du traitement du paiement", 
+            details: error.message 
         });
     }
 });
-
 /**
- * AUTRES ROUTES (Stats, Listes, Non-payées)
+ * ROUTE PAIEMENTS - CORRIGÉE
+ * Assurez-vous que les colonnes existent dans votre table paiements
  */
 app.get('/api/paiements', (req, res) => {
+    // Version simple - adaptez aux colonnes qui existent réellement
     const sql = `
-        SELECT p.*, c.prix as prixConsult, pat.nom, pat.prenom, prac.nom as nomPraticien
+        SELECT 
+            p.idPay as idPaiement,
+            p.idConsult,
+            p.montant,
+            p.modePaiement,
+            p.statut,
+            p.numeroClient,
+            p.datePaiement,
+            p.referenceTransaction,
+            c.prix as prixConsult,
+            pat.nom,
+            pat.prenom
         FROM paiements p
-        JOIN consultations c ON p.idConsult = c.idConsult
-        JOIN rendezvous r ON c.idRdv = r.idRdv
-        JOIN patients pat ON r.cinPatient = pat.cinPatient
-        JOIN praticiens prac ON r.cinPraticien = prac.cinPraticien
-        ORDER BY p.datePaiement DESC`;
+        LEFT JOIN consultations c ON p.idConsult = c.idConsult
+        LEFT JOIN rendezvous r ON c.idRdv = r.idRdv
+        LEFT JOIN patients pat ON r.cinPatient = pat.cinPatient
+        ORDER BY p.datePaiement DESC
+    `;
+    
     db.all(sql, [], (err, rows) => {
-        if (err) return res.status(500).json({ error: err.message });
-        res.json(rows);
+        if (err) {
+            console.error('Erreur GET /api/paiements:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
     });
 });
 
+/**
+ * ROUTE CONSULTATIONS NON PAYEES - CORRIGÉE
+ */
 app.get('/api/consultations/non-payees', (req, res) => {
-  const sql = `
-    SELECT c.idConsult, c.prix, pat.nom, pat.prenom -- Changé "nom as nomPatient" en "nom"
-    FROM consultations c
-    JOIN rendezvous r ON c.idRdv = r.idRdv
-    JOIN patients pat ON r.cinPatient = pat.cinPatient
-    LEFT JOIN paiements p ON c.idConsult = p.idConsult
-    WHERE p.idConsult IS NULL
-    ORDER BY c.idConsult DESC
-  `;
-  
-  db.all(sql, [], (err, rows) => {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json(rows);
-  });
+    const sql = `
+        SELECT 
+            c.idConsult, 
+            c.prix, 
+            pat.nom, 
+            pat.prenom
+        FROM consultations c
+        JOIN rendezvous r ON c.idRdv = r.idRdv
+        JOIN patients pat ON r.cinPatient = pat.cinPatient
+        LEFT JOIN paiements p ON c.idConsult = p.idConsult
+        WHERE p.idConsult IS NULL OR p.statut != 'REUSSI'
+        ORDER BY c.idConsult DESC
+    `;
+    
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error('Erreur GET /api/consultations/non-payees:', err);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
 });
-
 
 
 
