@@ -148,6 +148,7 @@ CREATE TABLE IF NOT EXISTS examen (
 `);
 
 
+
   console.log('✅ Toutes les tables ont été créées (si elles n’existaient pas)');
 });
 

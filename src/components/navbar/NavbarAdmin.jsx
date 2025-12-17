@@ -14,7 +14,7 @@ export default function NavbarAdmin() {
   const navItems = [
     { to: '/admin-auth', label: 'Connexion Admin', icon: <Shield size={20} className="mr-2" /> },
     { to: '/utilisateur-login', label: 'Connexion Utilisateurs', icon: <Users size={20} className="mr-2" /> },
-    { to: '/utilisateur', label: "Inscription d'utilisateurs", icon: <UserPlus size={20} className="mr-2" /> },
+    { to: '/authen', label: "Inscription d'utilisateurs", icon: <UserPlus size={20} className="mr-2" /> },
   ];
 
   const navLink = (to) =>
