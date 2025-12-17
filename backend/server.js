@@ -12,7 +12,7 @@ const Buffer = require('buffer').Buffer;
 app.use(express.json());
 app.set('trust proxy', 1);
 const MVOLA_API_URL = 'https://devapi.mvola.mg';
-const MERCHANT_MSISDN = '0343500003'; // NUMÉRO MARCHAND SANDBOX
+const MERCHANT_MSISDN = '0348068772'; // NUMÉRO MARCHAND SANDBOX
 
 
 app.use(cors({
