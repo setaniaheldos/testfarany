@@ -215,6 +215,9 @@ db.run(`
 });
 
 
+// Assure-toi d'avoir ceci au début de ton fichier
+
+
 app.post('/api/paiements', async (req, res) => {
   const { idConsult, modePaiement, numeroClient, montant } = req.body;
 
@@ -227,133 +230,106 @@ app.post('/api/paiements', async (req, res) => {
   }
 
   try {
-    // 🔎 Vérifier consultation
+    // Vérifier consultation
     const consult = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT prix FROM consultations WHERE idConsult = ?',
-        [idConsult],
-        (err, row) => err ? reject(err) : resolve(row)
-      );
+      db.get('SELECT prix FROM consultations WHERE idConsult = ?', [idConsult], (err, row) => err ? reject(err) : resolve(row));
     });
 
     if (!consult) return res.status(404).json({ error: "Consultation introuvable" });
+    if (Number(montant) !== Number(consult.prix)) return res.status(400).json({ error: "Montant incorrect" });
 
-    if (Number(montant) !== Number(consult.prix)) {
-      return res.status(400).json({ error: "Montant incorrect" });
-    }
-
-    // ❌ Déjà payé ?
+    // Paiement existant ?
     const existing = await new Promise((resolve, reject) => {
-      db.get(
-        'SELECT idPaiement FROM paiements WHERE idConsult = ?',
-        [idConsult],
-        (err, row) => err ? reject(err) : resolve(row)
-      );
+      db.get('SELECT idPaiement FROM paiements WHERE idConsult = ?', [idConsult], (err, row) => err ? reject(err) : resolve(row));
     });
 
-    if (existing) {
-      return res.status(400).json({ error: "Paiement déjà effectué" });
-    }
+    if (existing) return res.status(400).json({ error: "Paiement déjà effectué" });
 
-    // ================= MVOLA =================
+    // ====== MVOLA ======
     if (modePaiement === 'MVola') {
       const cleanedNum = numeroClient?.replace(/\s/g, '');
-
       if (!/^03[34]\d{7}$/.test(cleanedNum)) {
         return res.status(400).json({ error: "Numéro MVola invalide" });
       }
 
-      const token = await getMvolaToken();
+      try {
+        const token = await getMvolaToken();
 
-      // ✅ PAYLOAD MVOLA STRICT
-      const paymentData = {
-        amount: montant.toString(),
-        currency: "MGA",
-        descriptionText: `Paiement consultation ${idConsult}`,
-        requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`,
-        requestDate: new Date().toISOString(),
-        debitParty: [{ key: "msisdn", value: cleanedNum }],
-        creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }]
-      };
+        const paymentData = {
+          amount: montant.toString(),
+          currency: "MGA",
+          descriptionText: `Paiement consultation ${idConsult}`,
+          requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`,
+          requestDate: new Date().toISOString(),
+          debitParty: [{ key: "msisdn", value: cleanedNum }],
+          creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }]
+        };
 
-      // ✅ HEADERS EXACTS MVOLA
-      const response = await axios.post(
-        `${MVOLA_API_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
-        paymentData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'X-CorrelationID': `corr-${Date.now()}`,
-            'Content-Type': 'application/json',
-            Version: '1.0',
-            UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`
+        const response = await axios.post(
+          `${MVOLA_API_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
+          paymentData,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'X-CorrelationID': `corr-${Date.now()}`,
+              'Content-Type': 'application/json',
+              Version: '1.0',
+              UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`
+            }
           }
+        );
+
+        if (response.status === 202) {
+          await new Promise((resolve, reject) => {
+            db.run(
+              `INSERT INTO paiements (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient)
+               VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
+              [idConsult, montant, response.data.serverCorrelationId, cleanedNum],
+              err => err ? reject(err) : resolve()
+            );
+          });
+
+          return res.json({
+            message: "Demande MVola envoyée",
+            statut: "EN_ATTENTE",
+            correlationId: response.data.serverCorrelationId
+          });
+        } else {
+          return res.status(500).json({ error: "Échec MVola", details: response.data });
         }
-      );
-
-      if (response.status === 202) {
-        await new Promise((resolve, reject) => {
-          db.run(
-            `INSERT INTO paiements 
-             (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient)
-             VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
-            [
-              idConsult,
-              montant,
-              response.data.serverCorrelationId,
-              cleanedNum
-            ],
-            err => err ? reject(err) : resolve()
-          );
-        });
-
-        return res.json({
-          message: "Demande MVola envoyée",
-          statut: "EN_ATTENTE",
-          correlationId: response.data.serverCorrelationId
-        });
+      } catch (mvErr) {
+        console.error("Erreur MVola:", mvErr.response?.data || mvErr.message);
+        return res.status(500).json({ error: "Échec de la demande MVola", details: mvErr.response?.data || mvErr.message });
       }
     }
 
-    // ================= ESPÈCE =================
+    // ====== ESPÈCE ======
     if (modePaiement === 'Espece') {
       await new Promise((resolve, reject) => {
         db.run(
-          `INSERT INTO paiements (idConsult, montant, modePaiement, statut)
-           VALUES (?, ?, 'Espece', 'REUSSI')`,
+          `INSERT INTO paiements (idConsult, montant, modePaiement, statut) VALUES (?, ?, 'Espece', 'REUSSI')`,
           [idConsult, montant],
           err => err ? reject(err) : resolve()
         );
       });
-
-      return res.json({
-        message: "Paiement en espèces enregistré",
-        statut: "REUSSI"
-      });
+      return res.json({ message: "Paiement en espèces enregistré", statut: "REUSSI" });
     }
 
   } catch (error) {
-    console.error("❌ ERREUR MVOLA:", {
-      status: error.response?.status,
-      data: error.response?.data
-    });
-
-    res.status(500).json({
-      error: "Échec de la demande MVola",
-      details: error.response?.data || error.message
-    });
+    console.error("Erreur serveur paiement:", error);
+    return res.status(500).json({ error: "Erreur serveur lors du traitement du paiement" });
   }
 });
-app.post('/api/mvola/callback', express.json(), (req, res) => {
-  console.log('📩 CALLBACK MVola:', req.body);
 
+// CALLBACK MVOLA
+app.post('/api/mvola/callback', (req, res) => {
   const { transactionStatus, serverCorrelationId } = req.body;
+  console.log('CALLBACK MVOLA:', req.body);
 
   if (transactionStatus === 'completed') {
-    db.run(
-      `UPDATE paiements SET statut='REUSSI' WHERE referenceTransaction=?`,
-      [serverCorrelationId]
-    );
+    db.run(`UPDATE paiements SET statut='REUSSI' WHERE referenceTransaction=?`, [serverCorrelationId], err => {
+      if (err) console.error("Erreur update paiement:", err);
+    });
   }
 
   res.status(200).send('OK');

@@ -366,6 +366,72 @@ app.get('/api/consultations/non-payees', (req, res) => {
 
 
 
+
+
+
+
+
+
+
+
+
+app.get('/test-mvola', async (req, res) => {
+  try {
+    const token = await getMvolaToken();
+
+    const response = await axios.post(
+      'https://devapi.mvola.mg/mvola/mm/transactions/type/merchantpay/1.0.0',
+      {
+        amount: "100",
+        currency: "MGA",
+        descriptionText: "TEST MVOLA",
+        requestingOrganisationTransactionReference: "TEST-123456",
+        requestDate: new Date().toISOString(),
+        debitParty: [{ key: "msisdn", value: "0343500003" }],
+        creditParty: [{ key: "msisdn", value: "0343500003" }]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'X-CorrelationID': `test-${Date.now()}`,
+          'Content-Type': 'application/json',
+          Version: '1.0',
+          UserAccountIdentifier: 'msisdn;0343500003'
+        }
+      }
+    );
+
+    res.json(response.data);
+  } catch (e) {
+    res.status(500).json(e.response?.data || e.message);
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Routes CRUD pour patients
 app.get('/patients', (req, res) => {
   db.all('SELECT * FROM patients', [], (err, rows) => {
