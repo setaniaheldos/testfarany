@@ -331,7 +331,23 @@ app.post('/api/paiements', async (req, res) => {
     }
 });
 
-
+app.get('/api/paiements', (req, res) => {
+    const sql = `
+        SELECT p.*, c.prix as prixConsult, pat.nom, pat.prenom, prac.nom as nomPraticien
+        FROM paiements p
+        LEFT JOIN consultations c ON p.idConsult = c.idConsult
+        LEFT JOIN rendezvous r ON c.idRdv = r.idRdv
+        LEFT JOIN patients pat ON r.cinPatient = pat.cinPatient
+        LEFT JOIN praticiens prac ON r.cinPraticien = prac.cinPraticien
+        ORDER BY p.datePaiement DESC`;
+    db.all(sql, [], (err, rows) => {
+        if (err) {
+            console.error("Erreur SQL Paiements:", err.message);
+            return res.status(500).json({ error: err.message });
+        }
+        res.json(rows || []);
+    });
+});
 
 
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const API_BASE = 'https://heldosseva.duckdns.org'; // ou avec :3000 si nécessaire
+const API_BASE = 'https://heldosseva.duckdns.org'; 
 
 const PaiementForm = () => {
   const [consultations, setConsultations] = useState([]);
@@ -17,18 +17,21 @@ const PaiementForm = () => {
   }, []);
 
   const fetchData = async () => {
-    try {
-      const [nonPayeesRes, paiementsRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/consultations/non-payees`),
-        axios.get(`${API_BASE}/api/paiements`)
-      ]);
-      setConsultations(nonPayeesRes.data || []);
-      setPaiements(paiementsRes.data || []);
-    } catch (err) {
-      setMessage({ text: "Erreur lors du chargement des données", type: "error" });
-    }
-  };
+  try {
+    const [nonPayeesRes, paiementsRes] = await Promise.all([
+      axios.get(`${API_BASE}/api/consultations/non-payees`),
+      axios.get(`${API_BASE}/api/paiements`)
+    ]);
+    setConsultations(nonPayeesRes.data || []);
+    setPaiements(paiementsRes.data || []);
+  } catch (err) {
+    // AJOUTEZ CECI POUR VOIR L'ERREUR DANS F12
+    console.error("Détails de l'erreur API:", err.response?.data || err.message);
+    setMessage({ text: "Erreur de connexion au serveur", type: "error" });
+  }
+};
 
+  // Trouver la consultation sélectionnée pour obtenir le prix
   const consultSelectionnee = consultations.find(
     c => c.idConsult === Number(selectedConsult)
   );
@@ -37,6 +40,7 @@ const PaiementForm = () => {
     e.preventDefault();
     setMessage({ text: '', type: '' });
 
+    // 1. Validation Frontend (doit correspondre au point #2 du backend)
     if (!selectedConsult) {
       setMessage({ text: "Veuillez sélectionner une consultation", type: "error" });
       return;
@@ -44,44 +48,52 @@ const PaiementForm = () => {
 
     const montant = consultSelectionnee?.prix;
     if (!montant || montant <= 0) {
-      setMessage({ text: "Prix de consultation invalide", type: "error" });
+      setMessage({ text: "Montant invalide pour cette consultation", type: "error" });
       return;
     }
 
-    let cleanedNum = null;
+    // 2. Préparation du numéro MVola (Regex aligné sur le backend : 032, 033, 034, 038)
+    let cleanedNum = ""; 
     if (modePaiement === 'MVola') {
       cleanedNum = numeroClient.replace(/\s/g, '');
-      if (!/^03[34]\d{7}$/.test(cleanedNum)) {
-        setMessage({ text: "Numéro MVola invalide", type: "error" });
+      const mvolaRegex = /^03[2348]\d{7}$/; 
+      if (!mvolaRegex.test(cleanedNum)) {
+        setMessage({ text: "Numéro MVola invalide (ex: 0341234567)", type: "error" });
         return;
       }
     }
 
     setLoading(true);
+
     try {
+      // 3. Construction du Payload EXACT pour votre route app.post('/api/paiements')
       const payload = {
         idConsult: Number(selectedConsult),
-        montant,
-        modePaiement,
-        numeroClient: cleanedNum
+        modePaiement: modePaiement,
+        numeroClient: modePaiement === 'MVola' ? cleanedNum : "", // Évite 'null' si le backend attend une string
+        montant: Number(montant)
       };
 
       const res = await axios.post(`${API_BASE}/api/paiements`, payload);
 
+      // 4. Succès
       setMessage({
         text: res.data?.message || "Paiement enregistré avec succès",
         type: "success"
       });
 
-      // Recharger les données
-      await fetchData();
+      // Reset du formulaire et rafraîchissement des listes
       setSelectedConsult('');
       setNumeroClient('');
+      await fetchData(); 
+
     } catch (err) {
-      const errorMsg =
-        err.response?.data?.error ||
-        err.response?.data?.details?.message ||
-        "Erreur lors du paiement";
+      // 5. Gestion des erreurs (récupère le message du backend)
+      const errorMsg = 
+        err.response?.data?.error || 
+        err.response?.data?.details || 
+        "Erreur lors du traitement";
+      
       setMessage({ text: errorMsg, type: "error" });
     } finally {
       setLoading(false);
@@ -90,57 +102,44 @@ const PaiementForm = () => {
 
   return (
     <div className="max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg mt-10">
-      <h2 className="text-2xl font-bold mb-6 text-center">
-        Enregistrer un Paiement
-      </h2>
+      <h2 className="text-2xl font-bold mb-6 text-center text-blue-700">Enregistrer un Paiement</h2>
 
       {message.text && (
-        <div
-          className={`p-4 mb-4 rounded ${
-            message.type === 'success'
-              ? 'bg-green-100 text-green-800'
-              : 'bg-red-100 text-red-800'
-          }`}
-        >
+        <div className={`p-4 mb-4 rounded border ${
+          message.type === 'success' ? 'bg-green-100 border-green-400 text-green-700' : 'bg-red-100 border-red-400 text-red-700'
+        }`}>
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6 mb-8">
-        {/* Consultation */}
+      <form onSubmit={handleSubmit} className="space-y-6 mb-10">
         <div>
-          <label className="block text-sm font-medium mb-2">
-            Consultation à payer
-          </label>
+          <label className="block text-sm font-medium mb-2">Consultation à payer</label>
           <select
             value={selectedConsult}
             onChange={(e) => setSelectedConsult(e.target.value)}
-            className="w-full px-4 py-2 border rounded-md"
+            className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500"
             required
           >
             <option value="">-- Choisir une consultation --</option>
             {consultations.map(c => (
               <option key={c.idConsult} value={c.idConsult}>
-                #{c.idConsult} - {c.prenom} {c.nom} - {c.prix?.toLocaleString()} Ar
+                #{c.idConsult} - {c.nom} {c.prenom} - {c.prix?.toLocaleString()} Ar
               </option>
             ))}
           </select>
         </div>
 
-        {/* Prix */}
         {consultSelectionnee && (
-          <div className="bg-blue-50 p-4 rounded">
-            <strong>Prix :</strong> {consultSelectionnee.prix?.toLocaleString()} Ar
+          <div className="bg-gray-50 p-4 rounded-md border-l-4 border-blue-500">
+             <p className="text-lg font-bold text-gray-700">Prix : {consultSelectionnee.prix?.toLocaleString()} Ar</p>
           </div>
         )}
 
-        {/* Mode paiement */}
-        <div>
-          <label className="block text-sm font-medium mb-2">
-            Mode de paiement
-          </label>
+        <div className="space-y-2">
+          <label className="block text-sm font-medium">Mode de paiement</label>
           <div className="flex gap-6">
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
                 value="Espece"
@@ -150,7 +149,7 @@ const PaiementForm = () => {
               />
               Espèces
             </label>
-            <label className="flex items-center">
+            <label className="flex items-center cursor-pointer">
               <input
                 type="radio"
                 value="MVola"
@@ -163,90 +162,61 @@ const PaiementForm = () => {
           </div>
         </div>
 
-        {/* Numéro MVola */}
         {modePaiement === 'MVola' && (
-          <div>
-            <label className="block text-sm font-medium mb-2">
-              Numéro MVola du patient
-            </label>
+          <div className="animate-pulse">
+            <label className="block text-sm font-medium mb-2">Numéro MVola du patient</label>
             <input
               type="text"
               value={numeroClient}
               onChange={(e) => setNumeroClient(e.target.value)}
-              placeholder="0341234567"
-              className="w-full px-4 py-2 border rounded-md"
+              placeholder="034 00 000 00"
+              className="w-full px-4 py-2 border rounded-md focus:ring-2 focus:ring-yellow-500"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
-              Format : 033xxxxxxx ou 034xxxxxxx
-            </p>
           </div>
         )}
 
         <button
           type="submit"
           disabled={loading || !selectedConsult}
-          className={`w-full py-3 rounded-md text-white font-medium ${
-            loading || !selectedConsult ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700'
+          className={`w-full py-3 rounded-md text-white font-bold transition ${
+            loading || !selectedConsult ? 'bg-gray-400' : 'bg-blue-600 hover:bg-blue-700 shadow-md'
           }`}
         >
-          {loading ? 'Traitement...' : 'Enregistrer le paiement'}
+          {loading ? 'Traitement en cours...' : 'Enregistrer le paiement'}
         </button>
       </form>
 
-      {/* ================= Paiements effectués ================= */}
-      <h3 className="text-xl font-bold mb-2">Paiements effectués</h3>
-      {paiements.length > 0 ? (
-        <table className="w-full border border-gray-300 rounded-md text-sm mb-8">
+      <hr className="my-8" />
+
+      {/* Tables de visualisation (Paiements effectués) */}
+      <h3 className="text-xl font-bold mb-4">Paiements effectués</h3>
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse border text-sm">
           <thead className="bg-gray-100">
             <tr>
-              <th className="p-2 border">ID Consult</th>
-              <th className="p-2 border">Nom Patient</th>
-              <th className="p-2 border">Montant</th>
-              <th className="p-2 border">Mode</th>
-              <th className="p-2 border">Statut</th>
+              <th className="border p-2">ID</th>
+              <th className="border p-2">Patient</th>
+              <th className="border p-2">Montant</th>
+              <th className="border p-2">Mode</th>
+              <th className="border p-2">Statut</th>
             </tr>
           </thead>
           <tbody>
             {paiements.map(p => (
-              <tr key={p.idPaiement}>
-                <td className="p-2 border">{p.idConsult}</td>
-                <td className="p-2 border">{p.nom} {p.prenom}</td>
-                <td className="p-2 border">{p.montant?.toLocaleString()} Ar</td>
-                <td className="p-2 border">{p.modePaiement}</td>
-                <td className="p-2 border">{p.statut}</td>
+              <tr key={p.idPay || p.idConsult} className="text-center hover:bg-gray-50">
+                <td className="border p-2">{p.idConsult}</td>
+                <td className="border p-2 font-medium">{p.nom} {p.prenom}</td>
+                <td className="border p-2 font-bold">{p.montant?.toLocaleString()} Ar</td>
+                <td className="border p-2">{p.modePaiement}</td>
+                <td className={`border p-2 font-bold ${p.statut === 'REUSSI' ? 'text-green-600' : 'text-orange-500'}`}>
+                  {p.statut}
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
-      ) : (
-        <p className="text-gray-500">Aucun paiement enregistré.</p>
-      )}
-
-      {/* ================= Consultations non payées ================= */}
-      <h3 className="text-xl font-bold mb-2">Consultations non payées</h3>
-      {consultations.length > 0 ? (
-        <table className="w-full border border-gray-300 rounded-md text-sm">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border">ID Consult</th>
-              <th className="p-2 border">Nom Patient</th>
-              <th className="p-2 border">Montant</th>
-            </tr>
-          </thead>
-          <tbody>
-            {consultations.map(c => (
-              <tr key={c.idConsult}>
-                <td className="p-2 border">{c.idConsult}</td>
-                <td className="p-2 border">{c.nom} {c.prenom}</td>
-                <td className="p-2 border">{c.prix?.toLocaleString()} Ar</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p className="text-gray-500">Toutes les consultations sont payées.</p>
-      )}
+      </div>
     </div>
   );
 };
