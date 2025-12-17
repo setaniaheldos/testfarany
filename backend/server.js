@@ -1,19 +1,21 @@
-const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const bcrypt = require('bcrypt');
-const cors = require('cors');
-require('dotenv').config();
-
+// ✅ Tout en ES Modules
+import express from 'express';
+import sqlite3 from 'sqlite3';
+import bcrypt from 'bcrypt';
+import cors from 'cors';
+import dotenv from 'dotenv';
 import axios from 'axios';
-const app = express();
-const PORT = 3000;
-const Buffer = require('buffer').Buffer;
+import { Buffer } from 'buffer';
+const PORT = process.env.PORT || 3000;
 
+dotenv.config();
+
+// ⚠️ Créer l'application Express avant toute utilisation
+const app = express();
+
+app.use(cors());
 app.use(express.json());
 app.set('trust proxy', 1);
-const MVOLA_API_URL = 'https://devapi.mvola.mg';
-const MERCHANT_MSISDN = '0343500003'; // NUMÉRO MARCHAND SANDBOX
-
 
 app.use(cors({
   origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
