@@ -1,381 +1,237 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
-
-// 🔗 URL du serveur en dur – Modifiable facilement ici
-const API_URL = "https://heldosseva.duckdns.org";
+import React, { useState, useEffect } from 'react';
 
 const GestionPaiements = () => {
-  const [consultations, setConsultations] = useState([]);
-  const [stats, setStats] = useState({
-    Espece: { nombre: 0, total: 0 },
-    MVola: { nombre: 0, total: 0 }
+  const [paiements, setPaiements] = useState([]);
+  const [consultationsDisponibles, setConsultationsDisponibles] = useState([]);
+  const [stats, setStats] = useState([]);
+  const [loading, setLoading] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    idConsult: '',
+    montant: '',
+    modePaiement: 'MVola',
+    numeroClient: ''
   });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [editingPriceId, setEditingPriceId] = useState(null);
-  const [tempPrice, setTempPrice] = useState('');
-  const priceInputRef = useRef(null);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
-  const [showModal, setShowModal] = useState(false);
-  const [selectedConsult, setSelectedConsult] = useState(null);
-  const [paymentMode, setPaymentMode] = useState('Espece');
-  const [phone, setPhone] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-
-  // --- Récupération des données ---
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  // 1. Charger les données (Paiements, Stats et Consultations non payées)
+  const fetchData = async () => {
     try {
-      const [consultResponse, statsResponse] = await Promise.all([
-        axios.get(`${API_URL}/consultations-paiements`),
-        axios.get(`${API_URL}/paiements/stats`)
+      const [resPaiements, resStats, resConsults] = await Promise.all([
+        fetch('http://localhost:5000/api/paiements'),
+        fetch('http://localhost:5000/api/paiements/stats'),
+        fetch('http://localhost:5000/api/consultations/non-payees')
       ]);
-
-      const data = consultResponse.data.map(c => ({
-        ...c,
-        prix: Number(c.prix) || 0,
-        statut: c.statut || null,
-        modePaiement: c.modePaiement || null
-      }));
-      setConsultations(data);
-
-      const newStats = {
-        Espece: { nombre: 0, total: 0 },
-        MVola: { nombre: 0, total: 0 }
-      };
-      statsResponse.data.forEach(s => {
-        if (s.modePaiement in newStats && s.statut === 'REUSSI') {
-          newStats[s.modePaiement] = { nombre: s.nombre, total: Number(s.total) };
-        }
-      });
-      setStats(newStats);
-
+      
+      setPaiements(await resPaiements.json());
+      setStats(await resStats.json());
+      setConsultationsDisponibles(await resConsults.json());
     } catch (err) {
-      console.error("Erreur API :", err);
-      if (err.code === 'ERR_NETWORK') {
-        setError("Impossible de contacter le serveur. Vérifiez votre connexion ou le certificat HTTPS.");
-      } else if (err.response?.status === 404) {
-        setError("Route non trouvée. Vérifiez l'URL du serveur.");
-      } else {
-        setError(`Erreur : ${err.response?.data?.error || err.message}`);
-      }
-    } finally {
-      setLoading(false);
+      console.error("Erreur de chargement:", err);
     }
-  }, []);
+  };
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, []);
 
-  // Focus sur input prix
-  useEffect(() => {
-    if (editingPriceId && priceInputRef.current) {
-      priceInputRef.current.focus();
-      priceInputRef.current.select();
-    }
-  }, [editingPriceId]);
-
-  // --- Édition du prix ---
-  const startEditPrice = (consult) => {
-    if (consult.statut === 'REUSSI') return;
-    setEditingPriceId(consult.idConsult);
-    setTempPrice(consult.prix || '');
+  // 2. Gérer le changement de consultation dans la Combobox
+  const handleConsultChange = (id) => {
+    const selected = consultationsDisponibles.find(c => c.idConsult === parseInt(id));
+    setFormData({
+      ...formData,
+      idConsult: id,
+      montant: selected ? selected.prix : '' // Remplit le prix auto
+    });
   };
 
-  const cancelEditPrice = () => {
-    setEditingPriceId(null);
-    setTempPrice('');
-  };
-
-  const savePrice = async (idConsult) => {
-    const newPrice = parseFloat(tempPrice);
-    if (isNaN(newPrice) || newPrice < 0) {
-      alert("Prix invalide");
-      return;
-    }
-
-    try {
-      await axios.put(`${API_URL}/consultations/${idConsult}`, { prix: newPrice });
-      setConsultations(prev =>
-        prev.map(c => c.idConsult === idConsult ? { ...c, prix: newPrice } : c)
-      );
-      cancelEditPrice();
-    } catch (err) {
-      alert("Erreur lors de la sauvegarde du prix");
-      console.error(err);
-    }
-  };
-
-  // --- Validation numéro MVola ---
-  const isValidPhone = (num) => {
-    const cleaned = num.replace(/\s/g, '');
-    return /^034\d{7}$/.test(cleaned) || /^033\d{7}$/.test(cleaned);
-  };
-
-  // --- Soumission paiement ---
-  const submitPayment = async (e) => {
+  // 3. Soumission du paiement
+  const handlePaiement = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setMessage({ type: '', text: '' });
 
-    if (selectedConsult.prix <= 0) {
-      alert("Veuillez d'abord définir un prix supérieur à 0");
-      return;
-    }
-
-    if (paymentMode === 'MVola' && !isValidPhone(phone)) {
-      alert("Numéro MVola invalide ! Doit commencer par 033 ou 034 suivi de 7 chiffres.\nEx: 034 12 345 67");
-      return;
-    }
-
-    setSubmitting(true);
     try {
-      const payload = {
-        idConsult: selectedConsult.idConsult,
-        montant: selectedConsult.prix,
-        modePaiement: paymentMode,
-        numeroClient: paymentMode === 'MVola' ? phone.replace(/\s/g, '') : undefined
-      };
+      const response = await fetch('http://localhost:5000/api/paiements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      });
 
-      const res = await axios.post(`${API_URL}/api/paiements`, payload);
+      const data = await response.json();
 
-      if (paymentMode === 'Espece') {
-        alert("Paiement en espèces enregistré avec succès !");
+      if (response.ok) {
+        setMessage({ 
+          type: 'success', 
+          text: formData.modePaiement === 'MVola' 
+            ? "Demande MVola envoyée ! En attente de validation client." 
+            : "Paiement en espèces enregistré avec succès." 
+        });
+        setFormData({ idConsult: '', montant: '', modePaiement: 'MVola', numeroClient: '' });
+        fetchData(); // Rafraîchir tout
       } else {
-        alert(
-          "Demande MVola envoyée avec succès !\n" +
-          "Le patient doit confirmer le paiement sur son téléphone.\n\n" +
-          (res.data.correlationId ? `Référence : ${res.data.correlationId}` : "")
-        );
+        setMessage({ type: 'error', text: data.error || "Erreur lors du paiement" });
       }
-
-      setShowModal(false);
-      setPhone('');
-      setPaymentMode('Espece');
-      fetchData();
-
     } catch (err) {
-      console.error("Erreur paiement :", err);
-      const msg = err.response?.data?.error || "Erreur inconnue lors du paiement";
-      alert("Erreur : " + msg);
+      setMessage({ type: 'error', text: "Erreur de connexion au serveur" });
     } finally {
-      setSubmitting(false);
+      setLoading(false);
     }
   };
-
-  // --- Statut visuel ---
-  const getPaymentStatus = (c) => {
-    if (!c.statut) return { text: "Non payé", color: "#e74c3c" };
-    if (c.statut === 'REUSSI') return { text: "Payé", color: "#27ae60" };
-    if (c.statut === 'EN_ATTENTE') return { text: "En attente (MVola)", color: "#f39c12" };
-    if (c.statut === 'ECHOUE') return { text: "Échoué", color: "#c0392b" };
-    return { text: c.statut, color: "#7f8c8d" };
-  };
-
-  if (loading) return <div style={loaderStyle}>Chargement...</div>;
-  if (error) return (
-    <div style={errorStyle}>
-      <strong>Erreur :</strong> {error}
-      <button onClick={fetchData} style={{ marginLeft: '10px', padding: '8px 16px' }}>
-        Réessayer
-      </button>
-    </div>
-  );
 
   return (
-    <div style={containerStyle}>
-      <h1 style={{ textAlign: 'center', marginBottom: '30px', color: '#2c3e50' }}>
-        Gestion des Paiements
-      </h1>
+    <div className="min-h-screen bg-gray-50 p-6 font-sans">
+      <div className="max-w-6xl mx-auto">
+        <h1 className="text-3xl font-bold text-gray-800 mb-8 text-center">Gestion de la Caisse</h1>
 
-      {/* Statistiques */}
-      <div style={statsContainer}>
-        <div style={statCard('Espece')}>
-          <h3>Espèces</h3>
-          <p style={{ fontSize: '32px', margin: '15px 0', fontWeight: 'bold' }}>
-            {stats.Espece.total.toLocaleString()} Ar
-          </p>
-          <small>{stats.Espece.nombre} paiement{stats.Espece.nombre > 1 ? 's' : ''}</small>
+        {/* --- STATISTIQUES --- */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="bg-blue-600 text-white p-4 rounded-xl shadow-md">
+            <p className="text-sm opacity-80">Total Recettes (Réussis)</p>
+            <p className="text-2xl font-bold">
+                {stats.filter(s => s.statut === 'REUSSI')
+                      .reduce((acc, curr) => acc + curr.total, 0)
+                      .toLocaleString()} Ar
+            </p>
+          </div>
+          {stats.map((s, i) => (
+            <div key={i} className="bg-white p-4 rounded-xl shadow-sm border-b-4 border-yellow-500">
+              <p className="text-xs text-gray-500 uppercase font-semibold">{s.modePaiement} - {s.statut}</p>
+              <p className="text-xl font-bold text-gray-800">{s.total.toLocaleString()} Ar</p>
+            </div>
+          ))}
         </div>
-        <div style={statCard('MVola')}>
-          <h3>MVola</h3>
-          <p style={{ fontSize: '32px', margin: '15px 0', fontWeight: 'bold' }}>
-            {stats.MVola.total.toLocaleString()} Ar
-          </p>
-          <small>{stats.MVola.nombre} paiement{stats.MVola.nombre > 1 ? 's' : ''}</small>
-        </div>
-      </div>
 
-      {/* Tableau */}
-      <div style={tableWrapper}>
-        <table style={tableStyle}>
-          <thead>
-            <tr style={headerRowStyle}>
-              <th style={{ width: '80px' }}>#ID</th>
-              <th>Patient</th>
-              <th style={{ width: '140px' }}>Date</th>
-              <th style={{ width: '140px' }}>Prix</th>
-              <th style={{ width: '180px' }}>Statut Paiement</th>
-              <th style={{ width: '120px' }}>Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {consultations.length === 0 ? (
-              <tr>
-                <td colSpan="6" style={{ textAlign: 'center', padding: '50px', color: '#95a5a6' }}>
-                  Aucune consultation enregistrée
-                </td>
-              </tr>
-            ) : (
-              consultations.map(c => {
-                const status = getPaymentStatus(c);
-                const canEditPrice = c.statut !== 'REUSSI';
-                const canPay = !c.statut && c.prix > 0;
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          {/* --- FORMULAIRE --- */}
+          <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border border-gray-100 h-fit">
+            <h2 className="text-xl font-semibold mb-4 text-gray-700">Encaisser</h2>
+            
+            <form onSubmit={handlePaiement} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Consultation en attente</label>
+                <select 
+                  required
+                  className="w-full p-2 border rounded-lg bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                  value={formData.idConsult}
+                  onChange={(e) => handleConsultChange(e.target.value)}
+                >
+                  <option value="">-- Sélectionner --</option>
+                  {consultationsDisponibles.map(c => (
+                    <option key={c.idConsult} value={c.idConsult}>
+                      N°{c.idConsult} - {c.nomPatient} {c.prenom} ({c.prix} Ar)
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                return (
-                  <tr key={c.idConsult} style={rowStyle}>
-                    <td><strong>#{c.idConsult}</strong></td>
-                    <td><strong>{c.prenomPatient} {c.nomPatient}</strong></td>
-                    <td>{new Date(c.dateConsult).toLocaleDateString('fr-MG')}</td>
-                    <td>
-                      {editingPriceId === c.idConsult ? (
-                        <input
-                          ref={priceInputRef}
-                          type="number"
-                          value={tempPrice}
-                          onChange={(e) => setTempPrice(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') savePrice(c.idConsult);
-                            if (e.key === 'Escape') cancelEditPrice();
-                          }}
-                          onBlur={() => savePrice(c.idConsult)}
-                          style={priceInputStyle}
-                          min="0"
-                        />
-                      ) : (
-                        <span
-                          onClick={() => canEditPrice && startEditPrice(c)}
-                          style={{
-                            cursor: canEditPrice ? 'pointer' : 'default',
-                            color: canEditPrice ? '#3498db' : '#95a5a6',
-                            fontWeight: 'bold'
-                          }}
-                        >
-                          {c.prix > 0 ? `${c.prix.toLocaleString()} Ar` : 'Définir prix'}
-                        </span>
-                      )}
-                    </td>
-                    <td>
-                      <span style={{ color: status.color, fontWeight: 'bold' }}>
-                        {status.text}
-                      </span>
-                      {c.modePaiement && <small> ({c.modePaiement})</small>}
-                    </td>
-                    <td>
-                      {canPay ? (
-                        <button
-                          onClick={() => {
-                            setSelectedConsult(c);
-                            setShowModal(true);
-                          }}
-                          style={payBtn}
-                        >
-                          Régler
-                        </button>
-                      ) : (
-                        <span style={{ color: '#27ae60', fontWeight: 'bold' }}>✓</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Montant à payer (Ar)</label>
+                <input 
+                  type="number" readOnly
+                  className="w-full p-2 border rounded-lg bg-gray-50 font-bold text-gray-700"
+                  value={formData.montant}
+                />
+              </div>
 
-      {/* Modal Paiement */}
-      {showModal && selectedConsult && (
-        <div style={overlay} onClick={() => setShowModal(false)}>
-          <div style={modal} onClick={(e) => e.stopPropagation()}>
-            <h2 style={{ marginTop: 0 }}>Régler la consultation #{selectedConsult.idConsult}</h2>
-            <p><strong>Patient :</strong> {selectedConsult.prenomPatient} {selectedConsult.nomPatient}</p>
-            <p><strong>Montant dû :</strong> <span style={{ fontSize: '20px', color: '#27ae60' }}>
-              {selectedConsult.prix.toLocaleString()} Ar
-            </span></p>
+              <div>
+                <label className="block text-sm font-medium text-gray-600 mb-1">Mode de règlement</label>
+                <select 
+                  className="w-full p-2 border rounded-lg bg-white"
+                  value={formData.modePaiement}
+                  onChange={(e) => setFormData({...formData, modePaiement: e.target.value})}
+                >
+                  <option value="MVola">MVola</option>
+                  <option value="Espece">Espèces</option>
+                </select>
+              </div>
 
-            <form onSubmit={submitPayment}>
-              <label style={{ display: 'block', margin: '15px 0 8px', fontWeight: 'bold' }}>
-                Mode de paiement
-              </label>
-              <select
-                value={paymentMode}
-                onChange={(e) => setPaymentMode(e.target.value)}
-                style={inputFull}
-              >
-                <option value="Espece">Espèces (immédiat)</option>
-                <option value="MVola">MVola (demande au patient)</option>
-              </select>
-
-              {paymentMode === 'MVola' && (
+              {formData.modePaiement === 'MVola' && (
                 <div>
-                  <label style={{ display: 'block', margin: '20px 0 8px', fontWeight: 'bold' }}>
-                    Numéro MVola du patient
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="034 12 345 67"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    style={inputFull}
-                    required
+                  <label className="block text-sm font-medium text-gray-600 mb-1">Numéro MVola</label>
+                  <input 
+                    type="text" required
+                    className="w-full p-2 border rounded-lg border-yellow-400 focus:ring-yellow-400"
+                    placeholder="0340000000"
+                    value={formData.numeroClient}
+                    onChange={(e) => setFormData({...formData, numeroClient: e.target.value})}
                   />
-                  <small style={{ color: '#e67e22' }}>
-                    Doit commencer par <strong>033</strong> ou <strong>034</strong>
-                  </small>
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '12px', marginTop: '30px' }}>
-                <button type="submit" disabled={submitting} style={confirmBtn}>
-                  {submitting ? 'Envoi...' : `Confirmer le paiement`}
-                </button>
-                <button type="button" onClick={() => setShowModal(false)} style={cancelBtn}>
-                  Annuler
-                </button>
-              </div>
+              <button 
+                disabled={loading || !formData.idConsult}
+                className={`w-full py-3 rounded-lg font-bold text-white transition-all ${
+                  loading || !formData.idConsult ? 'bg-gray-300 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 shadow-lg'
+                }`}
+              >
+                {loading ? 'Traitement...' : 'Confirmer le règlement'}
+              </button>
             </form>
+
+            {message.text && (
+              <div className={`mt-4 p-3 rounded-lg text-sm border ${
+                message.type === 'error' ? 'bg-red-50 text-red-600 border-red-200' : 'bg-green-50 text-green-600 border-green-200'
+              }`}>
+                {message.text}
+              </div>
+            )}
           </div>
+
+          {/* --- TABLEAU HISTORIQUE --- */}
+          <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div className="p-4 border-b">
+              <h2 className="text-xl font-semibold text-gray-700">Derniers Paiements</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                <thead className="bg-gray-50 text-gray-500 text-xs uppercase">
+                  <tr>
+                    <th className="p-4">Patient</th>
+                    <th className="p-4">Montant</th>
+                    <th className="p-4">Mode / Statut</th>
+                    <th className="p-4">Date</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {paiements.length === 0 && (
+                    <tr><td colSpan="4" className="p-4 text-center text-gray-400">Aucun paiement enregistré</td></tr>
+                  )}
+                  {paiements.map((p) => (
+                    <tr key={p.idPaiement} className="hover:bg-gray-50 transition-colors">
+                      <td className="p-4">
+                        <div className="font-bold text-gray-800">{p.nom} {p.prenom}</div>
+                        <div className="text-xs text-gray-400 italic">Consultation #{p.idConsult}</div>
+                      </td>
+                      <td className="p-4 font-semibold text-gray-700">{p.montant.toLocaleString()} Ar</td>
+                      <td className="p-4">
+                        <span className={`text-[10px] px-2 py-1 rounded-full font-bold mr-2 ${
+                          p.modePaiement === 'MVola' ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'
+                        }`}>
+                          {p.modePaiement}
+                        </span>
+                        <span className={`text-[10px] font-bold ${
+                          p.statut === 'REUSSI' ? 'text-green-500' : p.statut === 'EN_ATTENTE' ? 'text-orange-400' : 'text-red-500'
+                        }`}>
+                          ● {p.statut}
+                        </span>
+                      </td>
+                      <td className="p-4 text-sm text-gray-500">
+                        {new Date(p.datePaiement).toLocaleDateString()}<br/>
+                        {new Date(p.datePaiement).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
-      )}
+      </div>
     </div>
   );
 };
-
-// --- Styles ---
-const containerStyle = { padding: '20px', maxWidth: '1200px', margin: '0 auto', fontFamily: 'Segoe UI, Arial, sans-serif' };
-const statsContainer = { display: 'flex', gap: '30px', marginBottom: '50px', justifyContent: 'center', flexWrap: 'wrap' };
-const statCard = (mode) => ({
-  flex: '1 1 280px',
-  padding: '30px',
-  borderRadius: '16px',
-  textAlign: 'center',
-  color: 'white',
-  backgroundColor: mode === 'MVola' ? '#e67e22' : '#27ae60',
-  boxShadow: '0 8px 25px rgba(0,0,0,0.15)'
-});
-const tableWrapper = { background: 'white', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 6px 25px rgba(0,0,0,0.1)' };
-const tableStyle = { width: '100%', borderCollapse: 'collapse' };
-const headerRowStyle = { background: '#2c3e50', color: 'white' };
-const rowStyle = { borderBottom: '1px solid #ecf0f1', height: '70px' };
-const priceInputStyle = { width: '110px', padding: '8px', borderRadius: '6px', border: '2px solid #3498db', fontSize: '16px' };
-const payBtn = { background: '#3498db', color: 'white', border: 'none', padding: '10px 18px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', fontSize: '14px' };
-const overlay = { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.75)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 };
-const modal = { background: 'white', padding: '35px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 15px 40px rgba(0,0,0,0.3)' };
-const inputFull = { width: '100%', padding: '14px', margin: '8px 0', boxSizing: 'border-box', borderRadius: '8px', border: '1px solid #bdc3c7', fontSize: '16px' };
-const confirmBtn = { background: '#27ae60', color: 'white', border: 'none', padding: '14px', flex: 1, borderRadius: '8px', fontSize: '16px', cursor: 'pointer', fontWeight: 'bold' };
-const cancelBtn = { background: '#e74c3c', color: 'white', border: 'none', padding: '14px', flex: 1, borderRadius: '8px', fontSize: '16px', cursor: 'pointer' };
-const errorStyle = { padding: '25px', background: '#f8d7da', color: '#721c24', borderRadius: '10px', margin: '20px', textAlign: 'center', fontSize: '18px' };
-const loaderStyle = { textAlign: 'center', padding: '100px', fontSize: '24px', color: '#3498db' };
 
 export default GestionPaiements;
