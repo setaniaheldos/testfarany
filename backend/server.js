@@ -3,12 +3,13 @@ import sqlite3 from 'sqlite3';
 import bcrypt from 'bcrypt';
 import cors from 'cors';
 import dotenv from 'dotenv';
+
 import axios from 'axios';
 import { Buffer } from 'buffer';
-const bodyParser = require('body-parser');
+
 
 dotenv.config();
-app.use(bodyParser.json());
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 // const PORT = 3000;
