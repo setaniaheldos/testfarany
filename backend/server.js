@@ -1,4 +1,3 @@
-// ✅ Tout en ES Modules
 import express from 'express';
 import sqlite3 from 'sqlite3';
 import bcrypt from 'bcrypt';
@@ -6,16 +5,19 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import axios from 'axios';
 import { Buffer } from 'buffer';
-const PORT = process.env.PORT || 3000;
 
 dotenv.config();
 
-// ⚠️ Créer l'application Express avant toute utilisation
 const app = express();
 
-app.use(cors());
+const PORT = 3000;
+
+
 app.use(express.json());
 app.set('trust proxy', 1);
+const MVOLA_API_URL = 'https://devapi.mvola.mg';
+const MERCHANT_MSISDN = '0343500004'; // NUMÉRO MARCHAND SANDBOX
+
 
 app.use(cors({
   origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
@@ -24,122 +26,36 @@ app.use(cors({
 
 // const consumerKey = 'gljozp0BGORI_xSyBcjIa6YxWq8a';     // Du portail developer
 //   const consumerSecret = 'lsGl2QnmpHeGlGY7bvJvlXQdGbYa';  // Du portail developer
-// const axios = require('axios');
-
 async function getMvolaToken() {
-  try {
-    const credentials = Buffer.from(
-      `${process.env.MVOLA_CONSUMER_KEY}:${process.env.MVOLA_CONSUMER_SECRET}`
-    ).toString('base64');
+  const consumerKey = process.env.MVOLA_CONSUMER_KEY;
+  const consumerSecret = process.env.MVOLA_CONSUMER_SECRET;
 
+  const auth = Buffer.from(
+    `${consumerKey}:${consumerSecret}`
+  ).toString('base64');
+
+  try {
     const response = await axios.post(
-      `${process.env.MVOLA_API_BASE_URL}/token`,
-      new URLSearchParams({
-        grant_type: 'client_credentials',
-        scope: 'EXT_INT_MVOLA_SCOPE'
-      }),
+      'https://devapi.mvola.mg/token',
+      'grant_type=client_credentials',
       {
         headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'Cache-Control': 'no-cache'
+          Authorization: `Basic ${auth}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
         }
       }
     );
 
     return response.data.access_token;
   } catch (error) {
-    console.error('Erreur authentification MVola:', error.response?.data || error.message);
-    throw new Error('Échec authentification MVola');
+    console.error(
+      'Erreur token MVola:',
+      error.response?.status,
+      error.response?.data
+    );
+    throw error;
   }
 }
-
-
-// test-mvola.js
-// const axios = require('axios');
-
-async function testMvolaIntegration() {
-  console.log('🧪 Test intégration MVola...');
-  
-  // 1. Test authentification
-  try {
-    const credentials = Buffer.from(
-      `${process.env.MVOLA_CONSUMER_KEY}:${process.env.MVOLA_CONSUMER_SECRET}`
-    ).toString('base64');
-
-    const authResponse = await axios.post(
-      `${process.env.MVOLA_API_BASE_URL}/token`,
-      new URLSearchParams({
-        grant_type: 'client_credentials',
-        scope: 'EXT_INT_MVOLA_SCOPE'
-      }),
-      {
-        headers: {
-          'Authorization': `Basic ${credentials}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
-    );
-
-    console.log('✅ Authentification réussie');
-    console.log('Token:', authResponse.data.access_token.substring(0, 20) + '...');
-
-    // 2. Test endpoint transaction
-    const testData = {
-      amount: "1000",
-      currency: "MGA",
-      descriptionText: "Test integration",
-      requestingOrganisationTransactionReference: `TEST-${Date.now()}`,
-      requestDate: new Date().toISOString(),
-      debitParty: [{ key: "msisdn", value: "0343500003" }],
-      creditParty: [{ key: "msisdn", value: process.env.MERCHANT_MSISDN }]
-    };
-
-    const transactionResponse = await axios.post(
-      `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
-      testData,
-      {
-        headers: {
-          'Authorization': `Bearer ${authResponse.data.access_token}`,
-          'X-CorrelationID': `test-${Date.now()}`,
-          'Content-Type': 'application/json',
-          'Version': '1.0',
-          'UserAccountIdentifier': `msisdn;${process.env.MERCHANT_MSISDN}`,
-          'partnerName': process.env.MVOLA_PARTNER_NAME
-        }
-      }
-    );
-
-    console.log('✅ Test transaction réussi');
-    console.log('Status:', transactionResponse.status);
-    console.log('Server Correlation ID:', transactionResponse.data.serverCorrelationId);
-
-  } catch (error) {
-    console.error('❌ Test échoué:');
-    console.error('Status:', error.response?.status);
-    console.error('Data:', error.response?.data);
-    console.error('Message:', error.message);
-    
-    if (error.response?.status === 401) {
-      console.error('\n🔑 Problème d\'authentification:');
-      console.error('1. Vérifiez MVOLA_CONSUMER_KEY et MVOLA_CONSUMER_SECRET');
-      console.error('2. Vérifiez que vous avez les bons credentials du portail dev MVola');
-    } else if (error.response?.status === 400) {
-      console.error('\n📋 Problème de format de requête:');
-      console.error('1. Vérifiez MERCHANT_MSISDN et MVOLA_PARTNER_NAME');
-      console.error('2. Utilisez les numéros de test: 0343500003 ou 0343500004');
-    }
-  }
-}
-
-testMvolaIntegration();
-
-
-
-
-
-
-
 
 
 // Connexion à la base SQLite
@@ -303,12 +219,9 @@ db.run(`
 });
 
 
-// Assure-toi d'avoir ceci au début de ton fichier
-
 app.post('/api/paiements', async (req, res) => {
   const { idConsult, modePaiement, numeroClient, montant } = req.body;
 
-  // Validation basique
   if (!idConsult || !modePaiement || !montant || montant <= 0) {
     return res.status(400).json({ error: "Données invalides" });
   }
@@ -318,469 +231,138 @@ app.post('/api/paiements', async (req, res) => {
   }
 
   try {
-    // 1. Vérifier la consultation
+    // 🔎 Vérifier consultation
     const consult = await new Promise((resolve, reject) => {
-      db.get('SELECT prix, nom, prenom FROM consultations WHERE idConsult = ?', 
-        [idConsult], 
-        (err, row) => err ? reject(err) : resolve(row)
-      );
-    });
-
-    if (!consult) {
-      return res.status(404).json({ error: "Consultation introuvable" });
-    }
-
-    // 2. Vérifier le montant
-    if (Math.abs(Number(montant) - Number(consult.prix)) > 1) {
-      return res.status(400).json({ 
-        error: "Montant incorrect", 
-        detail: `Montant attendu: ${consult.prix} Ar` 
-      });
-    }
-
-    // 3. Vérifier si paiement existe déjà
-    const existing = await new Promise((resolve, reject) => {
-      db.get('SELECT idPaiement, statut FROM paiements WHERE idConsult = ?', 
-        [idConsult], 
-        (err, row) => err ? reject(err) : resolve(row)
-      );
-    });
-
-    if (existing) {
-      return res.status(400).json({ 
-        error: "Paiement déjà effectué", 
-        statut: existing.statut 
-      });
-    }
-
-    // ====== MVOLA ======
-    if (modePaiement === 'MVola') {
-      const cleanedNum = (numeroClient || '').replace(/\s/g, '');
-      
-      // Validation numéro MVola
-      if (!/^03[34]\d{7}$/.test(cleanedNum)) {
-        return res.status(400).json({ 
-          error: "Numéro MVola invalide",
-          format: "Format attendu: 0341234567 ou 0331234567" 
-        });
-      }
-
-      try {
-        // A. Obtenir le token
-        const token = await getMvolaToken();
-        
-        // B. Préparer les données de paiement
-        const correlationId = `corr-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        const transactionRef = `CONS-${idConsult}-${Date.now()}`;
-
-        const paymentData = {
-          amount: Math.round(montant).toString(), // S'assurer que c'est un entier
-          currency: "MGA",
-          descriptionText: `Paiement consultation ${idConsult} - ${consult.prenom} ${consult.nom}`,
-          requestingOrganisationTransactionReference: transactionRef,
-          requestDate: new Date().toISOString(),
-          debitParty: [
-            { 
-              key: "msisdn", 
-              value: cleanedNum 
-            }
-          ],
-          creditParty: [
-            { 
-              key: "msisdn", 
-              value: process.env.MERCHANT_MSISDN 
-            }
-          ]
-        };
-
-        // C. Envoyer la requête à l'API MVola
-        const response = await axios.post(
-          `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
-          paymentData,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-              'X-CorrelationID': correlationId,
-              'Content-Type': 'application/json',
-              'Version': '1.0',
-              'UserAccountIdentifier': `msisdn;${process.env.MERCHANT_MSISDN}`,
-              'partnerName': process.env.MVOLA_PARTNER_NAME, // IMPORTANT
-              'Cache-Control': 'no-cache'
-            },
-            timeout: 30000 // 30 secondes timeout
-          }
-        );
-
-        console.log('Réponse MVola:', {
-          status: response.status,
-          data: response.data
-        });
-
-        // D. Traiter la réponse (202 = acceptée)
-        if (response.status === 202) {
-          const serverCorrelationId = response.data?.serverCorrelationId;
-          
-          // Enregistrer en base de données
-          await new Promise((resolve, reject) => {
-            db.run(
-              `INSERT INTO paiements (
-                idConsult, montant, modePaiement, statut, 
-                referenceTransaction, numeroClient, 
-                correlationId, datePaiement
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-              [
-                idConsult, 
-                montant, 
-                'MVola', 
-                'EN_ATTENTE',
-                serverCorrelationId || transactionRef,
-                cleanedNum,
-                correlationId
-              ],
-              err => err ? reject(err) : resolve()
-            );
-          });
-
-          return res.status(200).json({
-            success: true,
-            message: "Demande de paiement MVola envoyée avec succès",
-            statut: "EN_ATTENTE",
-            correlationId: correlationId,
-            serverCorrelationId: serverCorrelationId,
-            transactionRef: transactionRef,
-            nextStep: "Le patient doit confirmer le paiement sur son téléphone"
-          });
-        } else {
-          // Réponse inattendue
-          console.error('Réponse inattendue MVola:', response.status, response.data);
-          return res.status(500).json({
-            error: "Réponse inattendue de MVola",
-            detail: response.data
-          });
-        }
-
-      } catch (mvErr) {
-        // Log détaillé pour debug
-        console.error('ERREUR DÉTAILLÉE MVola:');
-        console.error('URL:', `${process.env.MVOLA_API_BASE_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`);
-        console.error('Status:', mvErr.response?.status);
-        console.error('Headers envoyés:', {
-          Authorization: 'Bearer ***', // Token masqué
-          'X-CorrelationID': 'corr-***',
-          'UserAccountIdentifier': `msisdn;${process.env.MERCHANT_MSISDN}`,
-          'partnerName': process.env.MVOLA_PARTNER_NAME
-        });
-        console.error('Données envoyées:', {
-          amount: montant,
-          currency: "MGA",
-          debitParty: `msisdn;${cleanedNum}`,
-          creditParty: `msisdn;${process.env.MERCHANT_MSISDN}`
-        });
-        console.error('Réponse erreur:', mvErr.response?.data);
-        console.error('Message:', mvErr.message);
-
-        // Enregistrer l'échec en base
-        await new Promise((resolve, reject) => {
-          db.run(
-            `INSERT INTO paiements (
-              idConsult, montant, modePaiement, statut, 
-              erreur, datePaiement
-            ) VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-            [
-              idConsult, 
-              montant, 
-              'MVola', 
-              'ECHEC',
-              mvErr.response?.data?.message || mvErr.message
-            ],
-            err => err ? reject(err) : resolve()
-          );
-        });
-
-        // Réponse adaptée selon le type d'erreur
-        const errorStatus = mvErr.response?.status;
-        let errorMessage = "Échec de la demande MVola";
-
-        if (errorStatus === 401) {
-          errorMessage = "Authentification MVola échouée. Vérifiez vos credentials.";
-        } else if (errorStatus === 400) {
-          errorMessage = "Requête invalide. Vérifiez le format des données.";
-        } else if (mvErr.code === 'ECONNREFUSED') {
-          errorMessage = "Impossible de se connecter à l'API MVola. Vérifiez l'URL.";
-        } else if (mvErr.code === 'ETIMEDOUT') {
-          errorMessage = "Timeout de connexion à MVola. Réessayez.";
-        }
-
-        return res.status(500).json({
-          error: errorMessage,
-          detail: mvErr.response?.data || mvErr.message,
-          status: errorStatus
-        });
-      }
-    }
-
-    // ====== ESPÈCE ======
-    if (modePaiement === 'Espece') {
-      await new Promise((resolve, reject) => {
-        db.run(
-          `INSERT INTO paiements (
-            idConsult, montant, modePaiement, statut, datePaiement
-          ) VALUES (?, ?, ?, ?, datetime('now'))`,
-          [idConsult, montant, 'Espece', 'REUSSI'],
-          err => err ? reject(err) : resolve()
-        );
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: "Paiement en espèces enregistré avec succès",
-        statut: "REUSSI"
-      });
-    }
-
-  } catch (error) {
-    console.error("Erreur serveur paiement:", error);
-    return res.status(500).json({ 
-      error: "Erreur serveur lors du traitement du paiement",
-      detail: error.message 
-    });
-  }
-});
-
-app.post('/api/mvola/callback', async (req, res) => {
-  console.log('📩 CALLBACK MVOLA RECU:', req.body);
-  
-  const { 
-    transactionStatus, 
-    serverCorrelationId, 
-    transactionReference,
-    amount,
-    currency,
-    debitParty,
-    creditParty
-  } = req.body;
-
-  try {
-    // Vérifier que c'est bien un callback MVola
-    if (!serverCorrelationId) {
-      console.warn('Callback sans serverCorrelationId');
-      return res.status(400).json({ error: "serverCorrelationId manquant" });
-    }
-
-    // Log complet pour debug
-    console.log('Détails callback:', {
-      transactionStatus,
-      serverCorrelationId,
-      transactionReference,
-      amount,
-      debitParty,
-      creditParty
-    });
-
-    if (transactionStatus === 'completed') {
-      // Mettre à jour le statut en base
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE paiements 
-           SET statut = 'REUSSI', 
-               dateValidation = datetime('now'),
-               referenceTransaction = COALESCE(?, referenceTransaction)
-           WHERE referenceTransaction = ? OR correlationId = ?`,
-          [transactionReference, serverCorrelationId, serverCorrelationId],
-          function(err) {
-            if (err) {
-              console.error("Erreur update paiement:", err);
-              reject(err);
-            } else {
-              console.log(`Paiement ${serverCorrelationId} mis à jour: ${this.changes} ligne(s)`);
-              resolve();
-            }
-          }
-        );
-      });
-
-      // Optionnel: Notifier le frontend via WebSocket ou autre
-      // ...
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Callback traité avec succès" 
-      });
-
-    } else if (transactionStatus === 'failed' || transactionStatus === 'rejected') {
-      // Gérer les échecs
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE paiements 
-           SET statut = 'ECHEC', 
-               erreur = ?,
-               dateValidation = datetime('now')
-           WHERE referenceTransaction = ? OR correlationId = ?`,
-          [`Échec MVola: ${transactionStatus}`, serverCorrelationId, serverCorrelationId],
-          err => err ? reject(err) : resolve()
-        );
-      });
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Statut d'échec enregistré" 
-      });
-    }
-
-    // Statut non reconnu
-    console.log(`Statut non traité: ${transactionStatus}`);
-    return res.status(200).json({ 
-      message: "Callback reçu, statut ignoré" 
-    });
-
-  } catch (error) {
-    console.error("Erreur traitement callback:", error);
-    return res.status(500).json({ 
-      error: "Erreur lors du traitement du callback" 
-    });
-  }
-});
-app.post('/api/mvola/callback', async (req, res) => {
-  console.log('📩 CALLBACK MVOLA RECU:', req.body);
-  
-  const { 
-    transactionStatus, 
-    serverCorrelationId, 
-    transactionReference,
-    amount,
-    currency,
-    debitParty,
-    creditParty
-  } = req.body;
-
-  try {
-    // Vérifier que c'est bien un callback MVola
-    if (!serverCorrelationId) {
-      console.warn('Callback sans serverCorrelationId');
-      return res.status(400).json({ error: "serverCorrelationId manquant" });
-    }
-
-    // Log complet pour debug
-    console.log('Détails callback:', {
-      transactionStatus,
-      serverCorrelationId,
-      transactionReference,
-      amount,
-      debitParty,
-      creditParty
-    });
-
-    if (transactionStatus === 'completed') {
-      // Mettre à jour le statut en base
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE paiements 
-           SET statut = 'REUSSI', 
-               dateValidation = datetime('now'),
-               referenceTransaction = COALESCE(?, referenceTransaction)
-           WHERE referenceTransaction = ? OR correlationId = ?`,
-          [transactionReference, serverCorrelationId, serverCorrelationId],
-          function(err) {
-            if (err) {
-              console.error("Erreur update paiement:", err);
-              reject(err);
-            } else {
-              console.log(`Paiement ${serverCorrelationId} mis à jour: ${this.changes} ligne(s)`);
-              resolve();
-            }
-          }
-        );
-      });
-
-      // Optionnel: Notifier le frontend via WebSocket ou autre
-      // ...
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Callback traité avec succès" 
-      });
-
-    } else if (transactionStatus === 'failed' || transactionStatus === 'rejected') {
-      // Gérer les échecs
-      await new Promise((resolve, reject) => {
-        db.run(
-          `UPDATE paiements 
-           SET statut = 'ECHEC', 
-               erreur = ?,
-               dateValidation = datetime('now')
-           WHERE referenceTransaction = ? OR correlationId = ?`,
-          [`Échec MVola: ${transactionStatus}`, serverCorrelationId, serverCorrelationId],
-          err => err ? reject(err) : resolve()
-        );
-      });
-
-      return res.status(200).json({ 
-        success: true, 
-        message: "Statut d'échec enregistré" 
-      });
-    }
-
-    // Statut non reconnu
-    console.log(`Statut non traité: ${transactionStatus}`);
-    return res.status(200).json({ 
-      message: "Callback reçu, statut ignoré" 
-    });
-
-  } catch (error) {
-    console.error("Erreur traitement callback:", error);
-    return res.status(500).json({ 
-      error: "Erreur lors du traitement du callback" 
-    });
-  }
-});
-
-
-
-app.get('/api/paiements/:idConsult/status', async (req, res) => {
-  const { idConsult } = req.params;
-
-  try {
-    const paiement = await new Promise((resolve, reject) => {
       db.get(
-        `SELECT 
-          p.*,
-          c.nom, c.prenom, c.prix as prixConsultation
-         FROM paiements p
-         LEFT JOIN consultations c ON p.idConsult = c.idConsult
-         WHERE p.idConsult = ?`,
+        'SELECT prix FROM consultations WHERE idConsult = ?',
         [idConsult],
         (err, row) => err ? reject(err) : resolve(row)
       );
     });
 
-    if (!paiement) {
-      return res.status(404).json({ 
-        error: "Aucun paiement trouvé pour cette consultation" 
+    if (!consult) return res.status(404).json({ error: "Consultation introuvable" });
+
+    if (Number(montant) !== Number(consult.prix)) {
+      return res.status(400).json({ error: "Montant incorrect" });
+    }
+
+    // ❌ Déjà payé ?
+    const existing = await new Promise((resolve, reject) => {
+      db.get(
+        'SELECT idPaiement FROM paiements WHERE idConsult = ?',
+        [idConsult],
+        (err, row) => err ? reject(err) : resolve(row)
+      );
+    });
+
+    if (existing) {
+      return res.status(400).json({ error: "Paiement déjà effectué" });
+    }
+
+    // ================= MVOLA =================
+    if (modePaiement === 'MVola') {
+      const cleanedNum = numeroClient?.replace(/\s/g, '');
+
+      if (!/^03[34]\d{7}$/.test(cleanedNum)) {
+        return res.status(400).json({ error: "Numéro MVola invalide" });
+      }
+
+      const token = await getMvolaToken();
+
+      // ✅ PAYLOAD MVOLA STRICT
+      const paymentData = {
+        amount: montant.toString(),
+        currency: "MGA",
+        descriptionText: `Paiement consultation ${idConsult}`,
+        requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`,
+        requestDate: new Date().toISOString(),
+        debitParty: [{ key: "msisdn", value: cleanedNum }],
+        creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }]
+      };
+
+      // ✅ HEADERS EXACTS MVOLA
+      const response = await axios.post(
+        `${MVOLA_API_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
+        paymentData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-CorrelationID': `corr-${Date.now()}`,
+            'Content-Type': 'application/json',
+            Version: '1.0',
+            UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`
+          }
+        }
+      );
+
+      if (response.status === 202) {
+        await new Promise((resolve, reject) => {
+          db.run(
+            `INSERT INTO paiements 
+             (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient)
+             VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
+            [
+              idConsult,
+              montant,
+              response.data.serverCorrelationId,
+              cleanedNum
+            ],
+            err => err ? reject(err) : resolve()
+          );
+        });
+
+        return res.json({
+          message: "Demande MVola envoyée",
+          statut: "EN_ATTENTE",
+          correlationId: response.data.serverCorrelationId
+        });
+      }
+    }
+
+    // ================= ESPÈCE =================
+    if (modePaiement === 'Espece') {
+      await new Promise((resolve, reject) => {
+        db.run(
+          `INSERT INTO paiements (idConsult, montant, modePaiement, statut)
+           VALUES (?, ?, 'Espece', 'REUSSI')`,
+          [idConsult, montant],
+          err => err ? reject(err) : resolve()
+        );
+      });
+
+      return res.json({
+        message: "Paiement en espèces enregistré",
+        statut: "REUSSI"
       });
     }
 
-    return res.json({
-      success: true,
-      paiement: {
-        idConsult: paiement.idConsult,
-        patient: `${paiement.prenom} ${paiement.nom}`,
-        montant: paiement.montant,
-        modePaiement: paiement.modePaiement,
-        statut: paiement.statut,
-        datePaiement: paiement.datePaiement,
-        dateValidation: paiement.dateValidation,
-        referenceTransaction: paiement.referenceTransaction,
-        erreur: paiement.erreur
-      }
+  } catch (error) {
+    console.error("❌ ERREUR MVOLA:", {
+      status: error.response?.status,
+      data: error.response?.data
     });
 
-  } catch (error) {
-    console.error("Erreur vérification statut:", error);
-    return res.status(500).json({ 
-      error: "Erreur lors de la vérification du statut" 
+    res.status(500).json({
+      error: "Échec de la demande MVola",
+      details: error.response?.data || error.message
     });
   }
 });
+app.post('/api/mvola/callback', express.json(), (req, res) => {
+  console.log('📩 CALLBACK MVola:', req.body);
+
+  const { transactionStatus, serverCorrelationId } = req.body;
+
+  if (transactionStatus === 'completed') {
+    db.run(
+      `UPDATE paiements SET statut='REUSSI' WHERE referenceTransaction=?`,
+      [serverCorrelationId]
+    );
+  }
+
+  res.status(200).send('OK');
+});
+
 
 
 
