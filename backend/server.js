@@ -282,7 +282,68 @@ app.post('/api/paiements', async (req, res) => {
     }
 });
 
+// 📊 Nouvelle route : Lister les consultations avec infos paiement
+app.get('/consultations-paiements', (req, res) => {
+  const sql = `
+    SELECT 
+      c.idConsult,
+      c.dateConsult,
+      c.prix,
+      c.compteRendu,
+      p.montant,
+      p.modePaiement,
+      p.statut,
+      p.datePaiement,
+      r.dateHeure AS dateRdv,
+      pat.nom AS nomPatient,
+      pat.prenom AS prenomPatient,
+      prac.nom AS nomPraticien,
+      prac.prenom AS prenomPraticien
+    FROM consultations c
+    LEFT JOIN paiements p ON c.idConsult = p.idConsult
+    LEFT JOIN rendezvous r ON c.idRdv = r.idRdv
+    LEFT JOIN patients pat ON r.cinPatient = pat.cinPatient
+    LEFT JOIN praticiens prac ON r.cinPraticien = prac.cinPraticien
+    ORDER BY c.dateConsult DESC
+  `;
 
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+// 📊 Stats des paiements (optionnel mais utile)
+app.get('/paiements/stats', (req, res) => {
+  const sql = `
+    SELECT 
+      modePaiement,
+      COUNT(*) AS nombre,
+      COALESCE(SUM(montant), 0) AS total
+    FROM paiements 
+    WHERE statut = 'REUSSI'
+    GROUP BY modePaiement
+  `;
+
+  db.all(sql, [], (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    
+    // Ajouter les modes manquants à 0
+    const stats = [
+      { modePaiement: 'Espece', nombre: 0, total: 0 },
+      { modePaiement: 'MVola', nombre: 0, total: 0 }
+    ];
+    
+    rows.forEach(row => {
+      const index = stats.findIndex(s => s.modePaiement === row.modePaiement);
+      if (index !== -1) {
+        stats[index] = { modePaiement: row.modePaiement, nombre: row.nombre, total: row.total };
+      }
+    });
+    
+    res.json(stats);
+  });
+});
 
 
 
