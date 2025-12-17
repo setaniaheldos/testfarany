@@ -281,7 +281,7 @@ app.post('/api/paiements', async (req, res) => {
         headers: {
           Authorization: `Bearer ${token}`,
           'X-CorrelationID': `corr-${Date.now()}`,
-          'X-Callback-URL': 'https://ton-domaine/api/mvola/callback',
+          'X-Callback-URL': 'https://heldosseva.duckdns.org/api/mvola/callback',
           'Content-Type': 'application/json',
           Version: '1.0',
           UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`,
