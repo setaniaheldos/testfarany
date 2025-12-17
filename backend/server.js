@@ -215,7 +215,6 @@ db.run(`
 });
 
 
-
 app.post('/api/paiements', async (req, res) => {
   const { idConsult, modePaiement, numeroClient, montant } = req.body;
 
@@ -228,7 +227,7 @@ app.post('/api/paiements', async (req, res) => {
   }
 
   try {
-    // 🔎 Consultation
+    // 🔎 Vérifier consultation
     const consult = await new Promise((resolve, reject) => {
       db.get(
         'SELECT prix FROM consultations WHERE idConsult = ?',
@@ -239,11 +238,11 @@ app.post('/api/paiements', async (req, res) => {
 
     if (!consult) return res.status(404).json({ error: "Consultation introuvable" });
 
-    if (parseFloat(montant) !== parseFloat(consult.prix)) {
+    if (Number(montant) !== Number(consult.prix)) {
       return res.status(400).json({ error: "Montant incorrect" });
     }
 
-    // ❌ Paiement existant ?
+    // ❌ Déjà payé ?
     const existing = await new Promise((resolve, reject) => {
       db.get(
         'SELECT idPaiement FROM paiements WHERE idConsult = ?',
@@ -266,35 +265,30 @@ app.post('/api/paiements', async (req, res) => {
 
       const token = await getMvolaToken();
 
+      // ✅ PAYLOAD MVOLA STRICT
       const paymentData = {
         amount: montant.toString(),
-        currency: "MGA", // ✅ OBLIGATOIRE
-        descriptionText: `Paiement consultation #${idConsult}`,
+        currency: "MGA",
+        descriptionText: `Paiement consultation ${idConsult}`,
         requestingOrganisationTransactionReference: `CONS-${idConsult}-${Date.now()}`,
-        requestDate: new Date().toISOString().split('.')[0] + 'Z',
+        requestDate: new Date().toISOString(),
         debitParty: [{ key: "msisdn", value: cleanedNum }],
-        creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }],
-        metadata: [{ key: "partnerName", value: "Cabinet Medical HLD" }]
+        creditParty: [{ key: "msisdn", value: MERCHANT_MSISDN }]
       };
 
-      const config = {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'X-CorrelationID': `corr-${Date.now()}`,
-          'X-Callback-URL': 'https://heldosseva.duckdns.org/api/mvola/callback',
-          'Content-Type': 'application/json',
-          Version: '1.0',
-          UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`,
-          partnerName: 'Cabinet Medical HLD',
-          UserLanguage: 'FR',
-          'Cache-Control': 'no-cache'
-        }
-      };
-
+      // ✅ HEADERS EXACTS MVOLA
       const response = await axios.post(
         `${MVOLA_API_URL}/mvola/mm/transactions/type/merchantpay/1.0.0`,
         paymentData,
-        config
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'X-CorrelationID': `corr-${Date.now()}`,
+            'Content-Type': 'application/json',
+            Version: '1.0',
+            UserAccountIdentifier: `msisdn;${MERCHANT_MSISDN}`
+          }
+        }
       );
 
       if (response.status === 202) {
@@ -332,16 +326,26 @@ app.post('/api/paiements', async (req, res) => {
         );
       });
 
-      return res.json({ message: "Paiement en espèces enregistré", statut: "REUSSI" });
+      return res.json({
+        message: "Paiement en espèces enregistré",
+        statut: "REUSSI"
+      });
     }
 
   } catch (error) {
-    console.error("Erreur paiement:", error.response?.data || error.message);
-    res.status(500).json({ error: "Erreur serveur MVola" });
+    console.error("❌ ERREUR MVOLA:", {
+      status: error.response?.status,
+      data: error.response?.data
+    });
+
+    res.status(500).json({
+      error: "Échec de la demande MVola",
+      details: error.response?.data || error.message
+    });
   }
 });
-app.post('/api/mvola/callback', (req, res) => {
-  console.log('CALLBACK MVola:', req.body);
+app.post('/api/mvola/callback', express.json(), (req, res) => {
+  console.log('📩 CALLBACK MVola:', req.body);
 
   const { transactionStatus, serverCorrelationId } = req.body;
 
@@ -354,6 +358,8 @@ app.post('/api/mvola/callback', (req, res) => {
 
   res.status(200).send('OK');
 });
+
+
 
 
 
