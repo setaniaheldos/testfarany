@@ -106,12 +106,15 @@ const UtilisateurLogin = ({ onLogin }) => {
         </button>
 
         <div className="text-center mt-6">
-            <a 
-                href="#" 
-                className="text-sm font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
-            >
-                Mot de passe oublié ?
-            </a>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+                Si vous n'avez pas de compte ? 
+                <a 
+                    href="/utilisateur" // Modifiez ceci avec votre route de connexion
+                    className="ml-1 font-medium text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors"
+                >
+                    Inscrivez-vous ici
+                </a>
+            </p>
         </div>
       </form>
     </div>

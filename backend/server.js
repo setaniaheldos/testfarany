@@ -2,10 +2,15 @@ const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bcrypt = require('bcrypt');
 const cors = require('cors');
-
+const axios = require('axios');
 const app = express();
 const PORT = 3000;
+require('dotenv').config();
 
+// Vos identifiants fournis par Telma/MVola
+const CONSUMER_KEY = process.env.MVOLA_KEY;
+const CONSUMER_SECRET = process.env.MVOLA_SECRET;
+const MVOLA_API_URL = "https://api.mvola.mg"; // URL de production ou sandbox
 
 app.use(express.json());
 app.set('trust proxy', 1);
@@ -24,7 +29,21 @@ const db = new sqlite3.Database('./patient.db', (err) => {
   console.log('✅ Connecté à la base de données SQLite');
 });
 
-
+// --- FONCTION POUR OBTENIR LE TOKEN ---
+async function getMvolaToken() {
+    const auth = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
+    
+    const response = await axios.post(`${MVOLA_API_URL}/token`, 
+        "grant_type=client_credentials", 
+        {
+            headers: {
+                'Authorization': `Basic ${auth}`,
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        }
+    );
+    return response.data.access_token;
+}
 
 // 🔧 Création des tables
 
@@ -148,8 +167,128 @@ CREATE TABLE IF NOT EXISTS examen (
 `);
 
 
+db.run(`CREATE TABLE IF NOT EXISTS paiements (
+  idPaiement INTEGER PRIMARY KEY AUTOINCREMENT,
+  idConsult INTEGER NOT NULL UNIQUE,
+  montant REAL NOT NULL CHECK (montant >= 0),
+  
+  modePaiement TEXT NOT NULL 
+    CHECK (modePaiement IN ('MVola', 'Espece')),
+    
+  statut TEXT DEFAULT 'EN_ATTENTE' 
+    CHECK (statut IN ('EN_ATTENTE', 'REUSSI', 'ECHOUE')),
+    
+  referenceTransaction TEXT UNIQUE, -- Useful for MVola transaction IDs
+  numeroClient TEXT,               -- Useful for the phone number used
+  datePaiement DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (idConsult) 
+    REFERENCES consultations(idConsult) 
+    ON DELETE CASCADE
+);
+`);
+
+
+
   console.log('✅ Toutes les tables ont été créées (si elles n’existaient pas)');
 });
+
+
+
+
+
+
+
+
+// --- ROUTE DE PAIEMENT UNIFIÉE (MVola & Espèce) ---
+app.post('/api/paiements', async (req, res) => {
+    const { idConsult, modePaiement, numeroClient, montant } = req.body;
+
+    // Validation de base
+    if (!idConsult || !montant || !modePaiement) {
+        return res.status(400).json({ error: "Données manquantes (idConsult, montant ou modePaiement)" });
+    }
+
+    try {
+        // --- CAS 1 : PAIEMENT MVOLA ---
+        if (modePaiement === 'MVola') {
+            if (!numeroClient) return res.status(400).json({ error: "Numéro de téléphone requis pour MVola" });
+
+            const token = await getMvolaToken(); // Votre fonction générant le token avec Consumer Key/Secret
+
+            const paymentData = {
+                amount: montant,
+                currency: "Ar",
+                description: `Consultation ${idConsult}`,
+                subscriberNumber: numeroClient,
+                transactionReference: `CONS-${idConsult}-${Date.now()}`,
+                originatingCountry: "MG"
+            };
+
+            const config = {
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'X-CorrelationID': Date.now().toString(),
+                    'UserLanguage': 'FR',
+                    'UserIp': '127.0.0.1',
+                    'Version': '1.0'
+                }
+            };
+
+            // Appel à l'API MVola
+            const response = await axios.post(`${MVOLA_API_URL}/mvola/mm/transactions/type/merchantpay/1.0.0/`, paymentData, config);
+
+            if (response.status === 202) {
+                // On enregistre avec le statut EN_ATTENTE
+                db.run(
+                    `INSERT INTO paiements (idConsult, montant, modePaiement, statut, referenceTransaction, numeroClient) 
+                     VALUES (?, ?, 'MVola', 'EN_ATTENTE', ?, ?)`,
+                    [idConsult, montant, response.data.serverCorrelationId, numeroClient],
+                    function(err) {
+                        if (err) return res.status(500).json({ error: err.message });
+                        res.json({ 
+                            message: "Demande MVola envoyée au client", 
+                            correlationId: response.data.serverCorrelationId 
+                        });
+                    }
+                );
+            }
+        } 
+        
+        // --- CAS 2 : PAIEMENT ESPÈCE ---
+        else if (modePaiement === 'Espece') {
+            // Pour l'espèce, on considère le paiement comme REUSSI immédiatement
+            db.run(
+                `INSERT INTO paiements (idConsult, montant, modePaiement, statut, datePaiement) 
+                 VALUES (?, ?, 'Espece', 'REUSSI', CURRENT_TIMESTAMP)`,
+                [idConsult, montant],
+                function(err) {
+                    if (err) {
+                        if (err.message.includes('UNIQUE')) return res.status(400).json({ error: "Déjà payé" });
+                        return res.status(500).json({ error: err.message });
+                    }
+                    res.json({ message: "Paiement en espèce enregistré avec succès" });
+                }
+            );
+        } 
+        
+        else {
+            res.status(400).json({ error: "Mode de paiement non supporté" });
+        }
+
+    } catch (error) {
+        console.error("Erreur Paiement:", error.response?.data || error.message);
+        res.status(500).json({ error: "Erreur lors du traitement du paiement" });
+    }
+});
+
+
+
+
+
+
+
+
 
 
 // Routes CRUD pour patients
