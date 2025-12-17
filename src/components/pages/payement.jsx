@@ -1,147 +1,191 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE = 'https://heldosseva.duckdns.org'; // Remplace par ton URL backend (ex: http://82.165.15.45:3000)
+
 const PaiementForm = () => {
   const [consultations, setConsultations] = useState([]);
+  const [selectedConsult, setSelectedConsult] = useState('');
+  const [modePaiement, setModePaiement] = useState('Espece');
+  const [numeroClient, setNumeroClient] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState({ type: '', text: '' });
+  const [message, setMessage] = useState({ text: '', type: '' }); // success ou error
 
-  // État du formulaire
-  const [formData, setFormData] = useState({
-    idConsult: '',
-    modePaiement: 'MVola',
-    numeroClient: '',
-    montant: ''
-  });
-
-  // 1. Charger les consultations non payées au montage
+  // Charger les consultations non payées au montage
   useEffect(() => {
-    fetchConsultations();
+    const fetchConsultationsNonPayees = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/api/consultations/non-payees`);
+        setConsultations(res.data);
+      } catch (err) {
+        setMessage({ text: 'Erreur lors du chargement des consultations', type: 'error' });
+      }
+    };
+    fetchConsultationsNonPayees();
   }, []);
 
-  const fetchConsultations = async () => {
-    try {
-      const res = await axios.get('https://heldosseva.duckdns.org/api/consultations/non-payees');
-      setConsultations(res.data);
-    } catch (err) {
-      console.error("Erreur chargement consultations", err);
-    }
-  };
-
-  // Mettre à jour le montant automatiquement quand on choisit une consultation
-  const handleConsultChange = (id) => {
-    const selected = consultations.find(c => c.idConsult === parseInt(id));
-    setFormData({
-      ...formData,
-      idConsult: id,
-      montant: selected ? selected.prix : ''
-    });
-  };
+  // Trouver la consultation sélectionnée pour afficher son prix
+  const consultSelectionnee = consultations.find(c => c.idConsult === parseInt(selectedConsult));
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage({ text: '', type: '' });
+
+    if (!selectedConsult) {
+      setMessage({ text: 'Veuillez sélectionner une consultation', type: 'error' });
+      return;
+    }
+
+    const montant = consultSelectionnee?.prix;
+    if (!montant || montant <= 0) {
+      setMessage({ text: 'Le prix de cette consultation n\'est pas défini', type: 'error' });
+      return;
+    }
+
+    if (modePaiement === 'MVola') {
+      const cleanedNum = numeroClient.replace(/\s/g, '');
+      if (!/^033\d{7}$|^034\d{7}$/.test(cleanedNum)) {
+        setMessage({ text: 'Numéro MVola invalide (doit être 033xxxxxxx ou 034xxxxxxx)', type: 'error' });
+        return;
+      }
+    }
+
     setLoading(true);
-    setMessage({ type: '', text: '' });
 
     try {
-      const response = await axios.post('https://heldosseva.duckdns.org/api/paiements', formData);
-      setMessage({ type: 'success', text: response.data.message });
-      
-      // Réinitialiser le formulaire et rafraîchir la liste
-      setFormData({ idConsult: '', modePaiement: 'MVola', numeroClient: '', montant: '' });
-      fetchConsultations();
-    } catch (err) {
-      setMessage({ 
-        type: 'error', 
-        text: err.response?.data?.error || "Une erreur est survenue" 
+      const payload = {
+        idConsult: parseInt(selectedConsult),
+        montant: montant,
+        modePaiement: modePaiement,
+        numeroClient: modePaiement === 'MVola' ? numeroClient.replace(/\s/g, '') : null
+      };
+
+      const res = await axios.post(`${API_BASE}/api/paiements`, payload);
+
+      setMessage({
+        text: res.data.message || 'Paiement enregistré avec succès !',
+        type: 'success'
       });
+
+      // Recharger la liste après paiement réussi
+      const updated = await axios.get(`${API_BASE}/api/consultations/non-payees`);
+      setConsultations(updated.data);
+      setSelectedConsult('');
+      setNumeroClient('');
+    } catch (err) {
+      const errorMsg = err.response?.data?.error || 'Erreur lors du paiement';
+      setMessage({ text: errorMsg, type: 'error' });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ maxWidth: '500px', margin: '20px auto', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-      <h2>Enregistrement de Paiement</h2>
+    <div className="max-w-2xl mx-auto p-6 bg-white rounded-lg shadow-lg mt-10">
+      <h2 className="text-2xl font-bold mb-6 text-center">Enregistrer un Paiement</h2>
 
       {message.text && (
-        <div style={{ padding: '10px', marginBottom: '15px', borderRadius: '4px', 
-          backgroundColor: message.type === 'success' ? '#d4edda' : '#f8d7da',
-          color: message.type === 'success' ? '#155724' : '#721c24' }}>
+        <div className={`p-4 mb-4 rounded ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
           {message.text}
         </div>
       )}
 
-      <form onSubmit={handleSubmit}>
-        {/* COMBOBOX : CONSULTATIONS */}
-        <div style={{ marginBottom: '15px' }}>
-          <label>Sélectionner la Consultation :</label>
-          <select 
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Sélecteur de consultation */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Consultation à payer
+          </label>
+          <select
+            value={selectedConsult}
+            onChange={(e) => setSelectedConsult(e.target.value)}
+            className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
             required
-            value={formData.idConsult}
-            onChange={(e) => handleConsultChange(e.target.value)}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
           >
             <option value="">-- Choisir une consultation --</option>
-            {consultations.map(c => (
+            {consultations.map((c) => (
               <option key={c.idConsult} value={c.idConsult}>
-                Réf #{c.idConsult} - {c.nomPatient} {c.prenom} ({c.prix} Ar)
+                #{c.idConsult} - {c.prenom} {c.nom} - Prix: {c.prix?.toLocaleString()} Ar
               </option>
             ))}
           </select>
         </div>
 
-        {/* AFFICHAGE DU MONTANT (Lecture seule) */}
-        <div style={{ marginBottom: '15px' }}>
-          <label>Montant à payer (Ar) :</label>
-          <input 
-            type="number" 
-            value={formData.montant} 
-            readOnly 
-            style={{ width: '100%', padding: '8px', marginTop: '5px', backgroundColor: '#e9ecef' }}
-          />
-        </div>
-
-        {/* MODE DE PAIEMENT */}
-        <div style={{ marginBottom: '15px' }}>
-          <label>Mode de Paiement :</label>
-          <select 
-            value={formData.modePaiement}
-            onChange={(e) => setFormData({...formData, modePaiement: e.target.value})}
-            style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-          >
-            <option value="MVola">MVola</option>
-            <option value="Espece">Espèces</option>
-          </select>
-        </div>
-
-        {/* NUMÉRO MVOLA (Conditionnel) */}
-        {formData.modePaiement === 'MVola' && (
-          <div style={{ marginBottom: '15px' }}>
-            <label>Numéro de téléphone MVola :</label>
-            <input 
-              type="text" 
-              placeholder="034XXXXXXX"
-              required
-              value={formData.numeroClient}
-              onChange={(e) => setFormData({...formData, numeroClient: e.target.value})}
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
-            />
+        {/* Affichage du prix */}
+        {consultSelectionnee && (
+          <div className="bg-blue-50 p-4 rounded">
+            <strong>Prix à payer :</strong> {consultSelectionnee.prix?.toLocaleString()} Ar
           </div>
         )}
 
-        <button 
-          type="submit" 
-          disabled={loading || !formData.idConsult}
-          style={{ 
-            width: '100%', padding: '10px', 
-            backgroundColor: loading ? '#ccc' : '#007bff', 
-            color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' 
-          }}
+        {/* Mode de paiement */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Mode de paiement
+          </label>
+          <div className="flex gap-6">
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="mode"
+                value="Espece"
+                checked={modePaiement === 'Espece'}
+                onChange={(e) => setModePaiement(e.target.value)}
+                className="mr-2"
+              />
+              Espèces
+            </label>
+            <label className="flex items-center">
+              <input
+                type="radio"
+                name="mode"
+                value="MVola"
+                checked={modePaiement === 'MVola'}
+                onChange={(e) => setModePaiement(e.target.value)}
+                className="mr-2"
+              />
+              MVola
+            </label>
+          </div>
+        </div>
+
+        {/* Numéro MVola (conditionnel) */}
+        {modePaiement === 'MVola' && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Numéro MVola du patient (033 ou 034)
+            </label>
+            <input
+              type="text"
+              value={numeroClient}
+              onChange={(e) => setNumeroClient(e.target.value)}
+              placeholder="034 12 345 67"
+              className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+              required={modePaiement === 'MVola'}
+            />
+            <p className="text-xs text-gray-500 mt-1">Format: 033xxxxxxx ou 034xxxxxxx</p>
+          </div>
+        )}
+
+        {/* Bouton */}
+        <button
+          type="submit"
+          disabled={loading || !selectedConsult}
+          className={`w-full py-3 px-4 rounded-md text-white font-medium ${
+            loading || !selectedConsult
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          }`}
         >
-          {loading ? 'Traitement...' : 'Confirmer le Paiement'}
+          {loading ? 'Traitement en cours...' : 'Enregistrer le paiement'}
         </button>
       </form>
+
+      {consultations.length === 0 && (
+        <p className="text-center text-gray-500 mt-8">
+          Aucune consultation non payée pour le moment.
+        </p>
+      )}
     </div>
   );
 };
