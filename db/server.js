@@ -5,15 +5,6 @@ const cors = require('cors');
 
 const app = express();
 const PORT = 3000;
-const Buffer = require('buffer').Buffer;
-
-require('dotenv').config();
-
-// Vos identifiants fournis par Telma/MVola
-const CONSUMER_KEY = process.env.MVOLA_KEY;
-const CONSUMER_SECRET = process.env.MVOLA_SECRET;
-const MVOLA_API_URL = "https://api.mvola.mg"; // URL de production ou sandbox
-
 
 
 app.use(express.json());
@@ -24,51 +15,6 @@ app.use(cors({
   origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
   credentials: true
 }));
-
-
-
-
-async function getMvolaToken() {
-  const consumerKey = 'TON_CONSUMER_KEY';     // Du portail developer
-  const consumerSecret = 'TON_CONSUMER_SECRET';
-
-  const auth = Buffer.from(`${consumerKey}:${consumerSecret}`).toString('base64');
-
-  try {
-    const response = await axios.post(
-      'https://developer.mvola.mg/oauth2/token',
-      'grant_type=client_credentials',
-      {
-        headers: {
-          'Authorization': `Basic ${auth}`,
-          'Content-Type': 'application/x-www-form-urlencoded'
-        }
-      }
-    );
-    return response.data.access_token; // Valide 3600s (1h)
-  } catch (error) {
-    console.error('Erreur token:', error.response?.data || error.message);
-    throw error;
-  }
-}
-
-// // --- FONCTION POUR OBTENIR LE TOKEN ---
-// async function getMvolaToken() {
-//     const auth = Buffer.from(`${CONSUMER_KEY}:${CONSUMER_SECRET}`).toString('base64');
-    
-//     const response = await axios.post(`${MVOLA_API_URL}/token`, 
-//         "grant_type=client_credentials", 
-//         {
-//             headers: {
-//                 'Authorization': `Basic ${auth}`,
-//                 'Content-Type': 'application/x-www-form-urlencoded'
-//             }
-//         }
-//     );
-//     return response.data.access_token;
-// }
-
-
 
 
 

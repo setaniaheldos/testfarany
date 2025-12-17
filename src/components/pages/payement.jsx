@@ -33,17 +33,10 @@ const PaiementForm = () => {
         axios.get(`${API_BASE}/api/consultations/non-payees`),
         axios.get(`${API_BASE}/api/paiements`)
       ]);
-      
-      console.log("Données reçues (Impayés):", nonPayeesRes.data);
-      console.log("Données reçues (Historique):", paiementsRes.data);
-
       setConsultations(nonPayeesRes.data || []);
       setPaiements(paiementsRes.data || []);
     } catch (err) {
-      console.error("Détail de l'erreur de chargement:", err);
-      // Affiche le message d'erreur précis si disponible
-      const msg = err.response?.data?.error || "Impossible de contacter le serveur";
-      setMessage({ text: msg, type: "error" });
+      setMessage({ text: "Erreur lors du chargement des données", type: "error" });
     }
   };
 
