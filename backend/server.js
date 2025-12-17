@@ -295,7 +295,7 @@ app.post('/api/paiements', async (req, res) => {
         };
 
         // URL API (change en prod plus tard)
-        const MVOLA_API_URL = 'https://devapi.mvola.mg'; // Sandbox
+        const MVOLA_API_URL = 'https://developer.mvola.mg/'; // Sandbox
         // const MVOLA_API_URL = 'https://api.mvola.mg'; // Production
 
         const response = await axios.post(
