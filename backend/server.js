@@ -38,7 +38,9 @@ async function getMvolaToken() {
 }
 
 app.use(cors({
-  origin: ['https://gestionpatienthld.netlify.app'], // Remplace par ton URL Netlify
+  origin: ['https://gestionpatienthld.netlify.app'],
+   methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'], // Remplace par ton URL Netlify
   credentials: true
 }));
 

@@ -27,18 +27,35 @@ const PaiementForm = () => {
     fetchData();
   }, []);
 
+  // const fetchData = async () => {
+  //   try {
+  //     const [nonPayeesRes, paiementsRes] = await Promise.all([
+  //       axios.get(`${API_BASE}/api/consultations/non-payees`),
+  //       axios.get(`${API_BASE}/api/paiements`)
+  //     ]);
+  //     setConsultations(nonPayeesRes.data || []);
+  //     setPaiements(paiementsRes.data || []);
+  //   } catch (err) {
+  //     setMessage({ text: "Erreur lors du chargement des données", type: "error" });
+  //   }
+  // };
+
   const fetchData = async () => {
-    try {
-      const [nonPayeesRes, paiementsRes] = await Promise.all([
-        axios.get(`${API_BASE}/api/consultations/non-payees`),
-        axios.get(`${API_BASE}/api/paiements`)
-      ]);
-      setConsultations(nonPayeesRes.data || []);
-      setPaiements(paiementsRes.data || []);
-    } catch (err) {
-      setMessage({ text: "Erreur lors du chargement des données", type: "error" });
-    }
-  };
+  try {
+    const nonPayeesRes = await axios.get(`${API_BASE}/api/consultations/non-payees`);
+    const paiementsRes = await axios.get(`${API_BASE}/api/paiements`);
+
+    setConsultations(nonPayeesRes.data || []);
+    setPaiements(paiementsRes.data || []);
+  } catch (err) {
+    console.error("ERREUR API :", err.response || err.message);
+    setMessage({
+      text: err.response?.data?.error || "Erreur lors du chargement des données",
+      type: "error"
+    });
+  }
+};
+
 
   const consultSelectionnee = consultations.find(
     c => c.idConsult === Number(selectedConsult)
